@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import Vision
 
 struct ContentView: View {
     @StateObject private var viewModel = ReceiptViewModel()
@@ -94,7 +95,7 @@ struct ContentView: View {
                 NavigationLink(
                     destination: ReceiptResultView(
                         image: viewModel.selectedImage ?? UIImage(),
-                        recognizedTexts: viewModel.recognizedTexts
+                        recognizedTexts: viewModel.recognizedTexts as [SplitScan.RecognizedText]
                     ),
                     isActive: $viewModel.shouldNavigateToResult
                 ) { EmptyView() }
@@ -105,7 +106,7 @@ struct ContentView: View {
 
 struct ReceiptResultView: View {
     let image: UIImage
-    let recognizedTexts: [RecognizedText]
+    let recognizedTexts: [SplitScan.RecognizedText]
     @State private var showDebug = false
     
     var body: some View {
@@ -134,21 +135,28 @@ struct ReceiptResultView: View {
                     let displayedSize = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
                     let xOffset = (containerSize.width - displayedSize.width) / 2
                     let yOffset = (containerSize.height - displayedSize.height) / 2
+                    
                     ZStack {
                         Image(uiImage: normalizedImage)
                             .resizable()
                             .scaledToFit()
                             .frame(width: displayedSize.width, height: displayedSize.height)
                             .position(x: containerSize.width / 2, y: containerSize.height / 2)
+                        
                         ForEach(recognizedTexts) { text in
-                            let rect = text.boundingBoxInPixels(for: imageSize)
+                            let boundingBox = text.boundingBox.boundingBox
+                            let rect = OCRService.shared.processBoundingBox(boundingBox, imageSize: imageSize)
+
+                            let displayedRect = CGRect(
+                                x: rect.origin.x * scale + xOffset,
+                                y: rect.origin.y * scale + yOffset,
+                                width: rect.width * scale,
+                                height: rect.height * scale
+                            )
                             Rectangle()
                                 .stroke(Color.blue, lineWidth: 2)
-                                .frame(width: rect.width * scale, height: rect.height * scale)
-                                .position(
-                                    x: (rect.midX * scale) + xOffset,
-                                    y: (rect.midY * scale) + yOffset
-                                )
+                                .frame(width: displayedRect.width, height: displayedRect.height)
+                                .position(x: displayedRect.midX, y: displayedRect.midY)
                         }
                     }
                 }
