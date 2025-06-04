@@ -7,7 +7,6 @@ struct ContentView: View {
     @State private var isShowingImagePicker = false
     @State private var isShowingCamera = false
     @State private var sourceType: UIImagePickerController.SourceType = .photoLibrary
-    @State private var isNavigatingToResult = false
     
     var body: some View {
         NavigationStack {
@@ -95,7 +94,7 @@ struct ContentView: View {
                 NavigationLink(
                     destination: ReceiptResultView(
                         image: viewModel.selectedImage ?? UIImage(),
-                        recognizedTexts: viewModel.recognizedTexts as [SplitScan.RecognizedText]
+                        recognizedTexts: viewModel.recognizedTexts
                     ),
                     isActive: $viewModel.shouldNavigateToResult
                 ) { EmptyView() }
@@ -104,79 +103,199 @@ struct ContentView: View {
     }
 }
 
+struct DebugView: View {
+    @ObservedObject var viewModel: ReceiptViewModel
+    @Environment(\.dismiss) var dismiss
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 0) {  // Remove spacing between sections
+                    if let image = viewModel.allBoxesImage {
+                        VStack(spacing: 8) {
+                            Text("All Recognized Text")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal)
+                                .padding(.top)
+                            Image(uiImage: image)
+                                .resizable()
+                                .interpolation(.none)
+                                .aspectRatio(contentMode: .fit)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .background(Color.gray.opacity(0.1))
+                                .border(Color.gray, width: 1)
+                        }
+                        .frame(maxHeight: .infinity)
+                    }
+                    
+                    if let image = viewModel.priceBoxesImage {
+                        VStack(spacing: 8) {
+                            Text("Price Boxes")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal)
+                                .padding(.top)
+                            Image(uiImage: image)
+                                .resizable()
+                                .interpolation(.none)
+                                .aspectRatio(contentMode: .fit)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .background(Color.gray.opacity(0.1))
+                                .border(Color.gray, width: 1)
+                        }
+                        .frame(maxHeight: .infinity)
+                    }
+                    
+                    if let image = viewModel.priceColumnImage {
+                        VStack(spacing: 8) {
+                            Text("Price Column")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal)
+                                .padding(.top)
+                            Image(uiImage: image)
+                                .resizable()
+                                .interpolation(.none)
+                                .aspectRatio(contentMode: .fit)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .background(Color.gray.opacity(0.1))
+                                .border(Color.gray, width: 1)
+                        }
+                        .frame(maxHeight: .infinity)
+                    }
+                }
+            }
+            .navigationTitle("Debug Visualization")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+            .edgesIgnoringSafeArea(.bottom)  // Allow content to extend to bottom edge
+        }
+        .navigationViewStyle(.stack)  // Use stack style to ensure full screen
+    }
+}
+
 struct ReceiptResultView: View {
     let image: UIImage
     let recognizedTexts: [SplitScan.RecognizedText]
-    @State private var showDebug = false
+    @StateObject private var viewModel = ReceiptViewModel()
     
     var body: some View {
         VStack {
-            HStack {
-                Text("Scanned Items")
-                    .font(.title2)
-                    .bold()
-                Spacer()
-                Button(action: { showDebug.toggle() }) {
-                    Text(showDebug ? "Hide Debug" : "Show Debug")
-                        .font(.caption)
-                        .padding(8)
-                        .background(Color.gray.opacity(0.2))
-                        .cornerRadius(8)
-                }
-            }
-            .padding([.top, .horizontal])
-            
-            if showDebug {
-                GeometryReader { geometry in
-                    let containerSize = geometry.size
-                    let normalizedImage = image.normalizedImage()
-                    let imageSize = normalizedImage.size
-                    let scale = min(containerSize.width / imageSize.width, containerSize.height / imageSize.height)
-                    let displayedSize = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
-                    let xOffset = (containerSize.width - displayedSize.width) / 2
-                    let yOffset = (containerSize.height - displayedSize.height) / 2
-                    
-                    ZStack {
-                        Image(uiImage: normalizedImage)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: displayedSize.width, height: displayedSize.height)
-                            .position(x: containerSize.width / 2, y: containerSize.height / 2)
-                        
-                        ForEach(recognizedTexts) { text in
-                            let boundingBox = text.boundingBox.boundingBox
-                            let rect = OCRService.shared.processBoundingBox(boundingBox, imageSize: imageSize)
-
-                            let displayedRect = CGRect(
-                                x: rect.origin.x * scale + xOffset,
-                                y: rect.origin.y * scale + yOffset,
-                                width: rect.width * scale,
-                                height: rect.height * scale
-                            )
-                            Rectangle()
-                                .stroke(Color.blue, lineWidth: 2)
-                                .frame(width: displayedRect.width, height: displayedRect.height)
-                                .position(x: displayedRect.midX, y: displayedRect.midY)
+            // Debug visualization section
+            ScrollView {
+                VStack(spacing: 20) {
+                    if let image = viewModel.allBoxesImage {
+                        VStack {
+                            Text("All Recognized Text")
+                                .font(.headline)
+                                .foregroundColor(.gray)
+                            Image(uiImage: image)
+                                .resizable()
+                                .interpolation(.none)
+                                .aspectRatio(contentMode: .fit)
+                                .frame(maxWidth: .infinity)
+                                .background(Color.gray.opacity(0.1))
+                                .border(Color.gray, width: 1)
                         }
+                        .padding(.horizontal)
+                    }
+                    
+                    if let image = viewModel.priceBoxesImage {
+                        VStack {
+                            Text("Price Boxes")
+                                .font(.headline)
+                                .foregroundColor(.gray)
+                            Image(uiImage: image)
+                                .resizable()
+                                .interpolation(.none)
+                                .aspectRatio(contentMode: .fit)
+                                .frame(maxWidth: .infinity)
+                                .background(Color.gray.opacity(0.1))
+                                .border(Color.gray, width: 1)
+                        }
+                        .padding(.horizontal)
+                    }
+                    
+                    if let image = viewModel.priceColumnImage {
+                        VStack {
+                            Text("Price Column")
+                                .font(.headline)
+                                .foregroundColor(.gray)
+                            Image(uiImage: image)
+                                .resizable()
+                                .interpolation(.none)
+                                .aspectRatio(contentMode: .fit)
+                                .frame(maxWidth: .infinity)
+                                .background(Color.gray.opacity(0.1))
+                                .border(Color.gray, width: 1)
+                        }
+                        .padding(.horizontal)
                     }
                 }
-                .frame(height: 300)
+                .padding(.vertical)
+            }
+            .background(Color.gray.opacity(0.1))
+            
+            // Original receipt items list
+            List {
+                ForEach(viewModel.receiptItems) { item in
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text(item.name)
+                                .font(.body)
+                            if item.quantity > 1 {
+                                Text("Quantity: \(item.quantity)")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                        Spacer()
+                        Text(String(format: "$%.2f", NSDecimalNumber(decimal: item.price).doubleValue))
+                            .font(.body)
+                            .bold()
+                    }
+                    .padding(.vertical, 4)
+                }
             }
             
-            List {
-                ForEach(recognizedTexts) { text in
-                    VStack(alignment: .leading) {
-                        Text(text.text)
-                            .font(.body)
-                        Text("Confidence: \(Int(text.confidence * 100))%")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                    }
+            if !viewModel.receiptItems.isEmpty {
+                let total = viewModel.receiptItems.reduce(Decimal(0)) { $0 + $1.price }
+                HStack {
+                    Text("Total:")
+                        .font(.headline)
+                    Spacer()
+                    Text(String(format: "$%.2f", NSDecimalNumber(decimal: total).doubleValue))
+                        .font(.headline)
+                        .bold()
                 }
+                .padding()
+                .background(Color.gray.opacity(0.1))
             }
         }
         .navigationTitle("Scan Result")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            // Process the recognized text into items when the view appears
+            viewModel.receiptItems = ReceiptProcessor.shared.processRecognizedText(recognizedTexts)
+            
+            // Create debug visualization images
+            viewModel.allBoxesImage = DebugVisualizer.shared.createAllBoxesImage(image: image, texts: recognizedTexts)
+            viewModel.priceBoxesImage = DebugVisualizer.shared.createPriceBoxesImage(image: image, texts: recognizedTexts)
+            if let priceColumnX = ReceiptProcessor.shared.findPriceColumn(recognizedTexts) {
+                viewModel.priceColumnImage = DebugVisualizer.shared.createPriceColumnImage(
+                    image: image,
+                    texts: recognizedTexts,
+                    priceColumnX: priceColumnX
+                )
+            }
+        }
     }
 }
 
