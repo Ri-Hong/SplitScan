@@ -2,15 +2,17 @@ import SwiftUI
 import PhotosUI
 
 struct ContentView: View {
-    @State private var selectedImage: UIImage?
+    @StateObject private var viewModel = ReceiptViewModel()
     @State private var isShowingImagePicker = false
     @State private var isShowingCamera = false
     @State private var sourceType: UIImagePickerController.SourceType = .photoLibrary
+    @State private var isNavigatingToResult = false
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack {
-                if let image = selectedImage {
+                // Image Preview Section
+                if let image = viewModel.selectedImage {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFit()
@@ -25,6 +27,7 @@ struct ContentView: View {
                         .padding()
                 }
                 
+                // Camera/Photo Library Buttons
                 HStack(spacing: 20) {
                     Button(action: {
                         sourceType = .camera
@@ -50,16 +53,122 @@ struct ContentView: View {
                 }
                 .padding()
                 
+                // Process Button
+                if viewModel.selectedImage != nil {
+                    Button(action: {
+                        viewModel.processImage()
+                    }) {
+                        if viewModel.isProcessing {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle())
+                        } else {
+                            Text("Process Receipt")
+                                .padding()
+                                .frame(maxWidth: .infinity)
+                                .background(Color.green)
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
+                        }
+                    }
+                    .disabled(viewModel.isProcessing)
+                    .padding(.horizontal)
+                }
+                
+                // Error Message
+                if let errorMessage = viewModel.errorMessage {
+                    Text(errorMessage)
+                        .foregroundColor(.red)
+                        .padding()
+                }
+                
                 Spacer()
             }
             .navigationTitle("SplitSnap")
             .sheet(isPresented: $isShowingImagePicker) {
-                ImagePicker(image: $selectedImage, sourceType: sourceType)
+                ImagePicker(image: $viewModel.selectedImage, sourceType: sourceType)
             }
             .sheet(isPresented: $isShowingCamera) {
-                ImagePicker(image: $selectedImage, sourceType: .camera)
+                ImagePicker(image: $viewModel.selectedImage, sourceType: .camera)
+            }
+            .background(
+                NavigationLink(
+                    destination: ReceiptResultView(
+                        image: viewModel.selectedImage ?? UIImage(),
+                        recognizedTexts: viewModel.recognizedTexts
+                    ),
+                    isActive: $viewModel.shouldNavigateToResult
+                ) { EmptyView() }
+            )
+        }
+    }
+}
+
+struct ReceiptResultView: View {
+    let image: UIImage
+    let recognizedTexts: [RecognizedText]
+    @State private var showDebug = false
+    
+    var body: some View {
+        VStack {
+            HStack {
+                Text("Scanned Items")
+                    .font(.title2)
+                    .bold()
+                Spacer()
+                Button(action: { showDebug.toggle() }) {
+                    Text(showDebug ? "Hide Debug" : "Show Debug")
+                        .font(.caption)
+                        .padding(8)
+                        .background(Color.gray.opacity(0.2))
+                        .cornerRadius(8)
+                }
+            }
+            .padding([.top, .horizontal])
+            
+            if showDebug {
+                GeometryReader { geometry in
+                    let containerSize = geometry.size
+                    let normalizedImage = image.normalizedImage()
+                    let imageSize = normalizedImage.size
+                    let scale = min(containerSize.width / imageSize.width, containerSize.height / imageSize.height)
+                    let displayedSize = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
+                    let xOffset = (containerSize.width - displayedSize.width) / 2
+                    let yOffset = (containerSize.height - displayedSize.height) / 2
+                    ZStack {
+                        Image(uiImage: normalizedImage)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: displayedSize.width, height: displayedSize.height)
+                            .position(x: containerSize.width / 2, y: containerSize.height / 2)
+                        ForEach(recognizedTexts) { text in
+                            let rect = text.boundingBoxInPixels(for: imageSize)
+                            Rectangle()
+                                .stroke(Color.blue, lineWidth: 2)
+                                .frame(width: rect.width * scale, height: rect.height * scale)
+                                .position(
+                                    x: (rect.midX * scale) + xOffset,
+                                    y: (rect.midY * scale) + yOffset
+                                )
+                        }
+                    }
+                }
+                .frame(height: 300)
+            }
+            
+            List {
+                ForEach(recognizedTexts) { text in
+                    VStack(alignment: .leading) {
+                        Text(text.text)
+                            .font(.body)
+                        Text("Confidence: \(Int(text.confidence * 100))%")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                }
             }
         }
+        .navigationTitle("Scan Result")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
