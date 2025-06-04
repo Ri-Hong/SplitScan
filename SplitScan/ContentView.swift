@@ -94,7 +94,8 @@ struct ContentView: View {
                 NavigationLink(
                     destination: ReceiptResultView(
                         image: viewModel.selectedImage ?? UIImage(),
-                        recognizedTexts: viewModel.recognizedTexts
+                        recognizedTexts: viewModel.recognizedTexts,
+                        viewModel: viewModel
                     ),
                     isActive: $viewModel.shouldNavigateToResult
                 ) { EmptyView() }
@@ -184,7 +185,7 @@ struct DebugView: View {
 struct ReceiptResultView: View {
     let image: UIImage
     let recognizedTexts: [SplitScan.RecognizedText]
-    @StateObject private var viewModel = ReceiptViewModel()
+    @ObservedObject var viewModel: ReceiptViewModel
     
     var body: some View {
         VStack {
@@ -281,21 +282,6 @@ struct ReceiptResultView: View {
         }
         .navigationTitle("Scan Result")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            // Process the recognized text into items when the view appears
-            viewModel.receiptItems = ReceiptProcessor.shared.processRecognizedText(recognizedTexts)
-            
-            // Create debug visualization images
-            viewModel.allBoxesImage = DebugVisualizer.shared.createAllBoxesImage(image: image, texts: recognizedTexts)
-            viewModel.priceBoxesImage = DebugVisualizer.shared.createPriceBoxesImage(image: image, texts: recognizedTexts)
-            if let priceColumnX = ReceiptProcessor.shared.findPriceColumn(recognizedTexts) {
-                viewModel.priceColumnImage = DebugVisualizer.shared.createPriceColumnImage(
-                    image: image,
-                    texts: recognizedTexts,
-                    priceColumnX: priceColumnX
-                )
-            }
-        }
     }
 }
 

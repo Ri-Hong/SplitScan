@@ -29,34 +29,37 @@ class ReceiptViewModel: ObservableObject {
         
         OCRService.shared.recognizeText(from: image) { [weak self] result in
             DispatchQueue.main.async {
-                self?.isProcessing = false
+                guard let self = self else { return }
                 
                 switch result {
                 case .success(let texts):
-                    self?.recognizedTexts = texts
+                    self.recognizedTexts = texts
                     
-                    // Create debug visualization images
-                    if let image = self?.selectedImage {
-                        self?.allBoxesImage = DebugVisualizer.shared.createAllBoxesImage(image: image, texts: texts)
-                        self?.priceBoxesImage = DebugVisualizer.shared.createPriceBoxesImage(image: image, texts: texts)
+                    // Create debug visualization images and process items
+                    if let image = self.selectedImage {
+                        // Process all visualizations and items first
+                        self.allBoxesImage = DebugVisualizer.shared.createAllBoxesImage(image: image, texts: texts)
+                        self.priceBoxesImage = DebugVisualizer.shared.createPriceBoxesImage(image: image, texts: texts)
                         
-                        // Process the recognized text into receipt items
                         if let priceColumnX = ReceiptProcessor.shared.findPriceColumn(texts) {
-                            self?.priceColumnImage = DebugVisualizer.shared.createPriceColumnImage(
+                            self.priceColumnImage = DebugVisualizer.shared.createPriceColumnImage(
                                 image: image,
                                 texts: texts,
                                 priceColumnX: priceColumnX
                             )
-                            self?.receiptItems = ReceiptProcessor.shared.processRecognizedText(texts)
+                            self.receiptItems = ReceiptProcessor.shared.processRecognizedText(texts)
+                        }
+                        
+                        // Only navigate after all processing is complete
+                        if !texts.isEmpty {
+                            self.shouldNavigateToResult = true
                         }
                     }
-                    
-                    if !texts.isEmpty {
-                        self?.shouldNavigateToResult = true
-                    }
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    self.errorMessage = error.localizedDescription
                 }
+                
+                self.isProcessing = false
             }
         }
     }

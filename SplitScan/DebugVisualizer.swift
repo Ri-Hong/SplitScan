@@ -36,13 +36,8 @@ class DebugVisualizer {
                 print("\nBox \(index + 1):")
                 print("Normalized box: \(box)")
                 
-                // Convert normalized coordinates to image coordinates
-                let imageBox = CGRect(
-                    x: box.origin.x * image.size.width,
-                    y: box.origin.y * image.size.height,
-                    width: box.width * image.size.width,
-                    height: box.height * image.size.height
-                )
+                // Convert normalized coordinates to image coordinates using processBoundingBox
+                let imageBox = processBoundingBox(box, imageSize: image.size)
                 print("Image coordinates box: \(imageBox)")
                 print("Label: \(label)")
                 
@@ -81,6 +76,26 @@ class DebugVisualizer {
         }
     }
     
+    /// Process a bounding box by rotating it 90° CCW and converting to UIKit coordinates
+    private func processBoundingBox(_ boundingBox: CGRect, imageSize: CGSize) -> CGRect {
+        // Rotate 90° CCW in normalized coordinates
+        let rotated = CGRect(
+            x: boundingBox.origin.y,
+            y: 1 - boundingBox.origin.x - boundingBox.size.width,
+            width: boundingBox.size.height,
+            height: boundingBox.size.width
+        )
+        // Convert to UIKit coordinates
+        let imageWidth = imageSize.width
+        let imageHeight = imageSize.height
+        var rect = rotated
+        rect.origin.x *= imageWidth
+        rect.origin.y = (1 - rect.origin.y - rect.height) * imageHeight // Flip Y and scale
+        rect.size.width *= imageWidth
+        rect.size.height *= imageHeight
+        return rect
+    }
+    
     /// Create a debug image showing all recognized text boxes
     func createAllBoxesImage(image: UIImage, texts: [RecognizedText]) -> UIImage {
         print("\n=== Creating All Boxes Image ===")
@@ -92,15 +107,7 @@ class DebugVisualizer {
             let box = text.boundingBox.boundingBox
             print("\nText: \"\(text.text)\"")
             print("Original Vision box: \(box)")
-            
-            let normalizedBox = CGRect(
-                x: box.origin.x,
-                y: 1 - box.origin.y - box.height, // Flip Y coordinate
-                width: box.width,
-                height: box.height
-            )
-            print("Normalized box: \(normalizedBox)")
-            return (box: normalizedBox, label: text.text)
+            return (box: box, label: text.text)
         }
         return drawBoxes(on: image, boxes: boxes, color: .blue)
     }
@@ -110,13 +117,7 @@ class DebugVisualizer {
         let priceBoxes = texts.compactMap { text -> (CGRect, String)? in
             guard let price = text.text.extractPrice() else { return nil }
             let box = text.boundingBox.boundingBox
-            let normalizedBox = CGRect(
-                x: box.origin.x,
-                y: 1 - box.origin.y - box.height, // Flip Y coordinate
-                width: box.width,
-                height: box.height
-            )
-            return (normalizedBox, String(format: "$%.2f", NSDecimalNumber(decimal: price).doubleValue))
+            return (box: box, String(format: "$%.2f", NSDecimalNumber(decimal: price).doubleValue))
         }
         return drawBoxes(on: image, boxes: priceBoxes, color: .green)
     }
@@ -138,7 +139,8 @@ class DebugVisualizer {
             cgContext.setStrokeColor(UIColor.red.cgColor)
             cgContext.setLineWidth(3.0)
             
-            // Draw vertical line at price column
+            // Draw vertical line at price column (in rotated coordinates)
+            // Since we rotate 90° CCW, the x-coordinate becomes the y-coordinate
             let x = priceColumnX * image.size.width
             cgContext.move(to: CGPoint(x: x, y: 0))
             cgContext.addLine(to: CGPoint(x: x, y: image.size.height))
@@ -148,24 +150,13 @@ class DebugVisualizer {
             let priceBoxes = texts.compactMap { text -> (CGRect, String)? in
                 guard let price = text.text.extractPrice() else { return nil }
                 let box = text.boundingBox.boundingBox
-                let normalizedBox = CGRect(
-                    x: box.origin.x,
-                    y: 1 - box.origin.y - box.height, // Flip Y coordinate
-                    width: box.width,
-                    height: box.height
-                )
-                return (normalizedBox, String(format: "$%.2f", NSDecimalNumber(decimal: price).doubleValue))
+                return (box: box, String(format: "$%.2f", NSDecimalNumber(decimal: price).doubleValue))
             }
             
             // Draw boxes in green
             cgContext.setStrokeColor(UIColor.green.cgColor)
             for (box, label) in priceBoxes {
-                let imageBox = CGRect(
-                    x: box.origin.x * image.size.width,
-                    y: box.origin.y * image.size.height,
-                    width: box.width * image.size.width,
-                    height: box.height * image.size.height
-                )
+                let imageBox = processBoundingBox(box, imageSize: image.size)
                 
                 // Draw box with fill
                 cgContext.setFillColor(UIColor.green.withAlphaComponent(0.1).cgColor)
