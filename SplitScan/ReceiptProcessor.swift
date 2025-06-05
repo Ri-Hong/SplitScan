@@ -31,56 +31,146 @@ class ReceiptProcessor {
         
         // Find the most common x-position for prices (price column)
         let priceColumnX = findPriceColumn(texts)
-        print("\nIdentified price column at x-position: \(priceColumnX?.description ?? "N/A")")
         
         // Second pass: Process items based on the price column
         var items: [ReceiptItem] = []
         
-        // Sort all texts by vertical position (y coordinate since it's flipped)
+        // Sort all texts by vertical position (top to bottom)
         let sortedTexts = texts.sorted { text1, text2 in
             let rect1 = text1.boundingBox.boundingBox
             let rect2 = text2.boundingBox.boundingBox
             return rect1.origin.x < rect2.origin.x // x is vertical
         }
         
-        // Group texts by vertical position (y coordinate since it's flipped)
-        let verticalGroups = groupTextsByVerticalPosition(sortedTexts)
+        // print x, y, and text
+        print("\n=== Sorted Text Coordinates ===")
+        for text in sortedTexts {
+            let box = text.boundingBox.boundingBox
+            print("Text: \"\(text.text)\"")
+            print("  x: \(box.origin.x), y: \(box.origin.y)")
+            print("  width: \(box.width), height: \(box.height)")
+        }
+        print("===============================\n")
         
-        // Process each vertical group
-        for (verticalPosition, groupTexts) in verticalGroups {
-            print("\n--- Processing vertical group at y=\(verticalPosition) ---")
+        // Filter texts to only those near the price column
+        let horizontalTolerance: CGFloat = 0.05 // How close text needs to be to price column
+        let textsNearPriceColumn = sortedTexts.filter { text in
+            let horizontalPosition = text.boundingBox.boundingBox.origin.y // y is horizontal
+            return abs(horizontalPosition - (priceColumnX ?? 0)) < horizontalTolerance
+        }
+        
+        // Process each text near the price column
+        for text in textsNearPriceColumn {
+            let textString = text.text.trimmingCharacters(in: .whitespacesAndNewlines)
             
-            // Find the price in this group (if any)
-            let priceInGroup = pricePositions.first { pricePos in
-                // Check if price is in this vertical group and close to price column
-                let priceY = pricePos.text.boundingBox.boundingBox.origin.x // x is vertical
-                let priceX = pricePos.text.boundingBox.boundingBox.origin.y // y is horizontal
-                return abs(priceY - verticalPosition) < 0.02 && // Close vertically
-                       abs(priceX - (priceColumnX ?? 0)) < 0.05 // Close to price column
-            }
-            
-            if let pricePos = priceInGroup {
-                print("Found price in group: $\(pricePos.price)")
+            // If this is a price, look for the item name
+            if let price = textString.extractPrice() {
+                print("Found price $\(price) at x: \(text.boundingBox.boundingBox.origin.x), y: \(text.boundingBox.boundingBox.origin.y)")
                 
-                // Find the item name in this group
-                // Look for text that's not a price and not a header/footer
-                let potentialItemNames = groupTexts.filter { text in
-                    let textString = text.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                    return textString.extractPrice() == nil && // Not a price
-                           !isReceiptHeaderOrFooter(textString) // Not a header/footer
+                // Find the closest text that's not a price and not a header/footer
+                let verticalPosition = text.boundingBox.boundingBox.origin.x // x is vertical
+                let rowTolerance: CGFloat = 0.01 // Stricter vertical alignment
+                
+                // First, look for text to the left of the price on the same line
+                let sameLineTexts = sortedTexts.filter { otherText in
+                    let otherString = otherText.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let otherVertical = otherText.boundingBox.boundingBox.origin.x
+                    let otherHorizontal = otherText.boundingBox.boundingBox.origin.y
+                    let priceHorizontal = text.boundingBox.boundingBox.origin.y
+                    
+                    return !isReceiptHeaderOrFooter(otherString) && // Not a header/footer
+                           abs(otherVertical - verticalPosition) < rowTolerance && // Same row
+                           otherHorizontal < priceHorizontal // To the left of price
                 }
                 
-                if let itemText = potentialItemNames.first {
-                    let itemName = itemText.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                    print("Found item name: \"\(itemName)\"")
+                print("Texts on same line as price: ")
+                for sameLineText in sameLineTexts {
+                    let box = sameLineText.boundingBox.boundingBox
+                    print("  - \"\(sameLineText.text)\"")
+                    print("    Position: x=\(box.origin.x), y=\(box.origin.y)")
+                }
+                
+                // Check if this is a weight-based price
+                let isWeightBasedPrice = sameLineTexts.contains { text in
+                    let text = text.text.lowercased()
+                    return text.contains("@") || text.contains("/kg") || text.contains("kg")
+                }
+                
+                if isWeightBasedPrice {
+                    print("Detected weight-based price")
                     
-                    items.append(ReceiptItem(
-                        name: itemName,
-                        price: pricePos.price,
-                        boundingBox: itemText.boundingBox.boundingBox
-                    ))
+                    // Look for item name in the line above
+                    let aboveLineTolerance: CGFloat = 0.03 // Slightly more lenient for above line
+                    let potentialItemNames = sortedTexts.filter { otherText in
+                        let otherString = otherText.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let otherVertical = otherText.boundingBox.boundingBox.origin.x
+                        
+                        return otherString.extractPrice() == nil && // Not a price
+                               !isReceiptHeaderOrFooter(otherString) && // Not a header/footer
+                               otherVertical < verticalPosition && // Above current line
+                               abs(otherVertical - verticalPosition) < aboveLineTolerance && // Close enough above
+                               otherText.boundingBox.boundingBox.origin.y < text.boundingBox.boundingBox.origin.y // To the left of price
+                    }
+                    
+                    print("Potential item names above weight line: ")
+                    for potentialItem in potentialItemNames {
+                        let box = potentialItem.boundingBox.boundingBox
+                        print("  - \"\(potentialItem.text)\"")
+                        print("    Position: x=\(box.origin.x), y=\(box.origin.y)")
+                    }
+                    
+                    // Find the best matching item name from above
+                    if let bestItem = findBestMatchingItem(potentialItemNames, priceText: text) {
+                        let itemName = bestItem.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                        print("Found weight-based item: \"\(itemName)\"")
+                        
+                        // Extract weight and price per kg if available
+                        var weight: Decimal?
+                        var pricePerKg: Decimal?
+                        
+                        for sameLineText in sameLineTexts {
+                            let text = sameLineText.text.lowercased()
+                            if let weightMatch = text.range(of: #"(\d+\.?\d*)\s*kg"#, options: .regularExpression) {
+                                let weightStr = String(text[weightMatch])
+                                weight = Decimal(string: weightStr.replacingOccurrences(of: "kg", with: "").trimmingCharacters(in: .whitespaces))
+                            }
+                            if let priceMatch = text.range(of: #"\$(\d+\.?\d*)/kg"#, options: .regularExpression) {
+                                let priceStr = String(text[priceMatch])
+                                pricePerKg = Decimal(string: priceStr.replacingOccurrences(of: "$/kg", with: "").trimmingCharacters(in: .whitespaces))
+                            }
+                        }
+                        
+                        items.append(ReceiptItem(
+                            name: itemName,
+                            price: price,
+                            boundingBox: bestItem.boundingBox.boundingBox,
+                            weight: weight,
+                            pricePerKg: pricePerKg
+                        ))
+                    }
                 } else {
-                    print("No item name found for price $\(pricePos.price)")
+                    // Regular item price - use the existing logic but with stricter vertical alignment
+                    let potentialItemNames: [RecognizedText] = sameLineTexts
+                    
+                    print("Regular price item - potential names: ")
+                    for potentialItem in potentialItemNames {
+                        let box = potentialItem.boundingBox.boundingBox
+                        print("  - \"\(potentialItem.text)\"")
+                        print("    Position: x=\(box.origin.x), y=\(box.origin.y)")
+                    }
+                    
+                    if let bestItem = findBestMatchingItem(potentialItemNames, priceText: text) {
+                        let itemName = bestItem.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                        print("Found regular item: \"\(itemName)\"")
+                        
+                        items.append(ReceiptItem(
+                            name: itemName,
+                            price: price,
+                            boundingBox: bestItem.boundingBox.boundingBox,
+                            weight: nil,
+                            pricePerKg: nil
+                        ))
+                    }
                 }
             }
         }
@@ -171,10 +261,6 @@ class ReceiptProcessor {
             lowercasedText.contains(pattern)
         }
         
-        if isHeaderFooter {
-            print("Matched header/footer pattern: \"\(text)\"")
-        }
-        
         return isHeaderFooter
     }
     
@@ -201,5 +287,33 @@ class ReceiptProcessor {
         
         print("Extracted item name: \"\(modifiedText)\"")
         return modifiedText
+    }
+    
+    private func findBestMatchingItem(_ potentialItems: [RecognizedText], priceText: RecognizedText) -> RecognizedText? {
+        return potentialItems.map { item -> (item: RecognizedText, score: Double) in
+            let itemBox = item.boundingBox.boundingBox
+            let priceBox = priceText.boundingBox.boundingBox
+            
+            // 1. Horizontal distance score (prefer items to the left of price)
+            let horizontalDistance = priceBox.origin.y - itemBox.origin.y
+            let horizontalScore = horizontalDistance > 0 ? 1.0 : 0.0
+            
+            // 2. Vertical alignment score (prefer items on same row)
+            let verticalDiff = abs(itemBox.origin.x - priceBox.origin.x)
+            let verticalScore = 1.0 - (verticalDiff / 0.01) // Using stricter tolerance
+            
+            // 3. Text length score (prefer longer text for item names)
+            let lengthScore = min(Double(item.text.count) / 20.0, 1.0)
+            
+            // 4. Position score (prefer items in the left side of receipt)
+            let positionScore = 1.0 - (itemBox.origin.y / 0.5)
+            
+            let totalScore = (horizontalScore * 0.4) + 
+                            (verticalScore * 0.3) + 
+                            (lengthScore * 0.2) + 
+                            (positionScore * 0.1)
+            
+            return (item: item, score: totalScore)
+        }.max(by: { $0.score < $1.score })?.item
     }
 } 

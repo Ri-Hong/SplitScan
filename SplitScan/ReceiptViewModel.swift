@@ -13,6 +13,7 @@ class ReceiptViewModel: ObservableObject {
     @Published var allBoxesImage: UIImage?
     @Published var priceBoxesImage: UIImage?
     @Published var priceColumnImage: UIImage?
+    @Published var priceAndItemBoxesImage: UIImage?
     
     func processImage() {
         guard let image = selectedImage else { return }
@@ -26,6 +27,7 @@ class ReceiptViewModel: ObservableObject {
         allBoxesImage = nil
         priceBoxesImage = nil
         priceColumnImage = nil
+        priceAndItemBoxesImage = nil
         
         OCRService.shared.recognizeText(from: image) { [weak self] result in
             DispatchQueue.main.async {
@@ -48,6 +50,13 @@ class ReceiptViewModel: ObservableObject {
                                 priceColumnX: priceColumnX
                             )
                             self.receiptItems = ReceiptProcessor.shared.processRecognizedText(texts)
+                            
+                            // Create the price and item boxes image after processing items
+                            self.priceAndItemBoxesImage = DebugVisualizer.shared.createPriceAndItemBoxesImage(
+                                image: image,
+                                texts: texts,
+                                items: self.receiptItems
+                            )
                         }
                         
                         // Only navigate after all processing is complete
@@ -71,5 +80,6 @@ class ReceiptViewModel: ObservableObject {
         allBoxesImage = nil
         priceBoxesImage = nil
         priceColumnImage = nil
+        priceAndItemBoxesImage = nil
     }
 } 

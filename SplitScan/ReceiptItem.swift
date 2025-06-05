@@ -6,12 +6,16 @@ struct ReceiptItem: Identifiable {
     let price: Decimal
     let quantity: Int
     let boundingBox: CGRect  // Store the position for UI purposes
+    let weight: Decimal?
+    let pricePerKg: Decimal?
     
-    init(name: String, price: Decimal, quantity: Int = 1, boundingBox: CGRect) {
+    init(name: String, price: Decimal, quantity: Int = 1, boundingBox: CGRect, weight: Decimal?, pricePerKg: Decimal?) {
         self.name = name
         self.price = price
         self.quantity = quantity
         self.boundingBox = boundingBox
+        self.weight = weight
+        self.pricePerKg = pricePerKg
     }
 }
 

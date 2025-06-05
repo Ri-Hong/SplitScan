@@ -17,10 +17,6 @@ class DebugVisualizer {
         boxes: [(box: CGRect, label: String)],
         color: UIColor = .red
     ) -> UIImage {
-        print("\n=== Drawing Bounding Boxes ===")
-        print("Image size: \(image.size)")
-        print("Number of boxes to draw: \(boxes.count)")
-        
         let renderer = UIGraphicsImageRenderer(size: image.size)
         
         return renderer.image { context in
@@ -33,13 +29,8 @@ class DebugVisualizer {
             
             // Draw each box
             for (index, (box, label)) in boxes.enumerated() {
-                print("\nBox \(index + 1):")
-                print("Normalized box: \(box)")
-                
                 // Convert normalized coordinates to image coordinates using processBoundingBox
                 let imageBox = processBoundingBox(box, imageSize: image.size)
-                print("Image coordinates box: \(imageBox)")
-                print("Label: \(label)")
                 
                 // Draw the box with a thicker line
                 cgContext.stroke(imageBox)
@@ -98,17 +89,21 @@ class DebugVisualizer {
     
     /// Create a debug image showing all recognized text boxes
     func createAllBoxesImage(image: UIImage, texts: [RecognizedText]) -> UIImage {
-        print("\n=== Creating All Boxes Image ===")
-        print("Number of texts: \(texts.count)")
+        print("\n=== All Recognized Text Coordinates ===")
+        print("Total texts: \(texts.count)")
         
         let boxes = texts.map { text in
             // Note: Vision's boundingBox is in normalized coordinates (0-1)
             // and uses a coordinate system where (0,0) is at the bottom-left
             let box = text.boundingBox.boundingBox
+            let rotated = processBoundingBox(box, imageSize: image.size)
             print("\nText: \"\(text.text)\"")
-            print("Original Vision box: \(box)")
+            print("Rotated and scaled coordinates (pixels):")
+            print("  x: \(rotated.origin.x), y: \(rotated.origin.y)")
+            print("  width: \(rotated.width), height: \(rotated.height)")
             return (box: box, label: text.text)
         }
+        print("\n===============================\n")
         return drawBoxes(on: image, boxes: boxes, color: .blue)
     }
     
@@ -182,6 +177,95 @@ class DebugVisualizer {
                 cgContext.setStrokeColor(UIColor.green.cgColor)
                 cgContext.stroke(labelRect.insetBy(dx: -4, dy: -4))
                 (label as NSString).draw(in: labelRect, withAttributes: labelAttributes)
+            }
+        }
+    }
+    
+    /// Create a debug image showing price boxes and their corresponding item boxes
+    func createPriceAndItemBoxesImage(
+        image: UIImage,
+        texts: [RecognizedText],
+        items: [ReceiptItem]
+    ) -> UIImage {
+        
+        let renderer = UIGraphicsImageRenderer(size: image.size)
+        
+        return renderer.image { context in
+            // Draw the original image
+            image.draw(in: CGRect(origin: .zero, size: image.size))
+            
+            let cgContext = context.cgContext
+            
+            // Draw each item and its price
+            for (index, item) in items.enumerated() {
+                // Draw item box in blue
+                cgContext.setStrokeColor(UIColor.blue.cgColor)
+                cgContext.setLineWidth(3.0)
+                let itemBox = processBoundingBox(item.boundingBox, imageSize: image.size)
+                
+                // Draw box with semi-transparent fill
+                cgContext.setFillColor(UIColor.blue.withAlphaComponent(0.1).cgColor)
+                cgContext.fill(itemBox)
+                cgContext.stroke(itemBox)
+                
+                // Draw item label
+                let itemLabel = "Item: \(item.name)"
+                let itemLabelAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 14, weight: .bold),
+                    .foregroundColor: UIColor.blue
+                ]
+                
+                let itemLabelSize = (itemLabel as NSString).size(withAttributes: itemLabelAttributes)
+                let itemLabelRect = CGRect(
+                    x: itemBox.origin.x,
+                    y: itemBox.origin.y - itemLabelSize.height - 4,
+                    width: itemLabelSize.width,
+                    height: itemLabelSize.height
+                )
+                
+                // Draw label background
+                UIColor.white.setFill()
+                cgContext.fill(itemLabelRect.insetBy(dx: -4, dy: -4))
+                cgContext.setStrokeColor(UIColor.blue.cgColor)
+                cgContext.stroke(itemLabelRect.insetBy(dx: -4, dy: -4))
+                (itemLabel as NSString).draw(in: itemLabelRect, withAttributes: itemLabelAttributes)
+                
+                // Find and draw the corresponding price box
+                if let priceText = texts.first(where: { text in
+                    guard let price = text.text.extractPrice() else { return false }
+                    return price == item.price
+                }) {
+                    // Draw price box in green
+                    cgContext.setStrokeColor(UIColor.green.cgColor)
+                    let priceBox = processBoundingBox(priceText.boundingBox.boundingBox, imageSize: image.size)
+                    
+                    // Draw box with semi-transparent fill
+                    cgContext.setFillColor(UIColor.green.withAlphaComponent(0.1).cgColor)
+                    cgContext.fill(priceBox)
+                    cgContext.stroke(priceBox)
+                    
+                    // Draw price label
+                    let priceLabel = String(format: "$%.2f", NSDecimalNumber(decimal: item.price).doubleValue)
+                    let priceLabelAttributes: [NSAttributedString.Key: Any] = [
+                        .font: UIFont.systemFont(ofSize: 14, weight: .bold),
+                        .foregroundColor: UIColor.green
+                    ]
+                    
+                    let priceLabelSize = (priceLabel as NSString).size(withAttributes: priceLabelAttributes)
+                    let priceLabelRect = CGRect(
+                        x: priceBox.origin.x,
+                        y: priceBox.origin.y - priceLabelSize.height - 4,
+                        width: priceLabelSize.width,
+                        height: priceLabelSize.height
+                    )
+                    
+                    // Draw label background
+                    UIColor.white.setFill()
+                    cgContext.fill(priceLabelRect.insetBy(dx: -4, dy: -4))
+                    cgContext.setStrokeColor(UIColor.green.cgColor)
+                    cgContext.stroke(priceLabelRect.insetBy(dx: -4, dy: -4))
+                    (priceLabel as NSString).draw(in: priceLabelRect, withAttributes: priceLabelAttributes)
+                }
             }
         }
     }

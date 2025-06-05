@@ -165,6 +165,25 @@ struct DebugView: View {
                         }
                         .frame(maxHeight: .infinity)
                     }
+                    
+                    if let image = viewModel.priceAndItemBoxesImage {
+                        VStack(spacing: 8) {
+                            Text("Price and Item Boxes")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal)
+                                .padding(.top)
+                            Image(uiImage: image)
+                                .resizable()
+                                .interpolation(.none)
+                                .aspectRatio(contentMode: .fit)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .background(Color.gray.opacity(0.1))
+                                .border(Color.gray, width: 1)
+                        }
+                        .frame(maxHeight: .infinity)
+                    }
+                    
                 }
             }
             .navigationTitle("Debug Visualization")
@@ -239,6 +258,22 @@ struct ReceiptResultView: View {
                         }
                         .padding(.horizontal)
                     }
+                    
+                    if let image = viewModel.priceAndItemBoxesImage {
+                        VStack {
+                            Text("Price and Item Boxes")
+                                .font(.headline)
+                                .foregroundColor(.gray)
+                            Image(uiImage: image)
+                                .resizable()
+                                .interpolation(.none)
+                                .aspectRatio(contentMode: .fit)
+                                .frame(maxWidth: .infinity)
+                                .background(Color.gray.opacity(0.1))
+                                .border(Color.gray, width: 1)
+                        }
+                        .padding(.horizontal)
+                    }
                 }
                 .padding(.vertical)
             }
@@ -246,38 +281,57 @@ struct ReceiptResultView: View {
             
             // Original receipt items list
             List {
-                ForEach(viewModel.receiptItems) { item in
-                    HStack {
-                        VStack(alignment: .leading) {
+                ForEach(viewModel.receiptItems, id: \.name) { item in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
                             Text(item.name)
                                 .font(.body)
-                            if item.quantity > 1 {
-                                Text("Quantity: \(item.quantity)")
-                                    .font(.caption)
-                                    .foregroundColor(.gray)
+                            Spacer()
+                            Text(String(format: "$%.2f", NSDecimalNumber(decimal: item.price).doubleValue))
+                                .font(.body)
+                                .bold()
+                        }
+                        
+                        // Secondary line with additional details
+                        if item.weight != nil || item.pricePerKg != nil {
+                            HStack {
+                                if let weight = item.weight {
+                                    Text(String(format: "%.3f kg", NSDecimalNumber(decimal: weight).doubleValue))
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                if let pricePerKg = item.pricePerKg {
+                                    if item.weight != nil {
+                                        Text("•")
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Text(String(format: "@ $%.2f/kg", NSDecimalNumber(decimal: pricePerKg).doubleValue))
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                Spacer()
                             }
                         }
-                        Spacer()
-                        Text(String(format: "$%.2f", NSDecimalNumber(decimal: item.price).doubleValue))
-                            .font(.body)
-                            .bold()
                     }
                     .padding(.vertical, 4)
                 }
-            }
-            
-            if !viewModel.receiptItems.isEmpty {
-                let total = viewModel.receiptItems.reduce(Decimal(0)) { $0 + $1.price }
-                HStack {
-                    Text("Total:")
-                        .font(.headline)
-                    Spacer()
-                    Text(String(format: "$%.2f", NSDecimalNumber(decimal: total).doubleValue))
-                        .font(.headline)
-                        .bold()
+                
+                if !viewModel.receiptItems.isEmpty {
+                    Divider()
+                    let total = viewModel.receiptItems.reduce(Decimal(0)) { $0 + $1.price }
+                    HStack {
+                        Text("Total:")
+                            .font(.headline)
+                        Spacer()
+                        Text(String(format: "$%.2f", NSDecimalNumber(decimal: total).doubleValue))
+                            .font(.headline)
+                            .bold()
+                    }
+                    .padding()
+                    .background(Color.gray.opacity(0.1))
                 }
-                .padding()
-                .background(Color.gray.opacity(0.1))
             }
         }
         .navigationTitle("Scan Result")
