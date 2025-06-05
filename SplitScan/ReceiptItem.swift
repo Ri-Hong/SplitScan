@@ -8,14 +8,17 @@ struct ReceiptItem: Identifiable {
     let boundingBox: CGRect  // Store the position for UI purposes
     let weight: Decimal?
     let pricePerKg: Decimal?
+    let pricePerCount: Decimal?  // New field for count-based items
     
-    init(name: String, price: Decimal, quantity: Int = 1, boundingBox: CGRect, weight: Decimal?, pricePerKg: Decimal?) {
+    init(name: String, price: Decimal, quantity: Int = 1, boundingBox: CGRect, 
+         weight: Decimal? = nil, pricePerKg: Decimal? = nil, pricePerCount: Decimal? = nil) {
         self.name = name
         self.price = price
         self.quantity = quantity
         self.boundingBox = boundingBox
         self.weight = weight
         self.pricePerKg = pricePerKg
+        self.pricePerCount = pricePerCount
     }
 }
 

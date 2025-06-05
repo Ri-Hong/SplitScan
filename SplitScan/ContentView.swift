@@ -293,7 +293,7 @@ struct ReceiptResultView: View {
                         }
                         
                         // Secondary line with additional details
-                        if item.weight != nil || item.pricePerKg != nil {
+                        if item.weight != nil || item.pricePerKg != nil || item.quantity > 1 || item.pricePerCount != nil {
                             HStack {
                                 if let weight = item.weight {
                                     Text(String(format: "%.3f kg", NSDecimalNumber(decimal: weight).doubleValue))
@@ -302,11 +302,19 @@ struct ReceiptResultView: View {
                                 }
                                 
                                 if let pricePerKg = item.pricePerKg {
-                                    if item.weight != nil {
-                                        Text("•")
-                                            .foregroundColor(.secondary)
-                                    }
                                     Text(String(format: "@ $%.2f/kg", NSDecimalNumber(decimal: pricePerKg).doubleValue))
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                if item.quantity > 1 {
+                                    Text("\(item.quantity) @")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                if let pricePerCount = item.pricePerCount {
+                                    Text(String(format: "$%.2f each", NSDecimalNumber(decimal: pricePerCount).doubleValue))
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }

@@ -37,9 +37,9 @@ SplitScan processes receipt images to extract items and their prices using a com
 
 4. **Special Cases**
    - Handle weight-based items (e.g., "1.220 kg @ $1.30/kg")
+   - Handle count-based items (e.g., "2 @ $2.00")
    - Process multi-line items (item name above weight/price)
    - Filter out receipt headers and footers
-   - Handle items with quantity multipliers (e.g., "2 @ $2.00")
 
 ## Coordinate System
 - x-coordinate: Vertical position (top to bottom)

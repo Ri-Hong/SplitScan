@@ -90,14 +90,19 @@ class ReceiptProcessor {
                     print("    Position: x=\(box.origin.x), y=\(box.origin.y)")
                 }
                 
-                // Check if this is a weight-based price
+                // Check if this is a weight-based or count-based price
                 let isWeightBasedPrice = sameLineTexts.contains { text in
                     let text = text.text.lowercased()
-                    return text.contains("@") || text.contains("/kg") || text.contains("kg")
+                    return text.contains("kg") && text.contains("@") && text.contains("/kg")
                 }
                 
-                if isWeightBasedPrice {
-                    print("Detected weight-based price")
+                let isCountBasedPrice = sameLineTexts.contains { text in
+                    let text = text.text.lowercased()
+                    return text.contains("@") && !text.contains("kg") && !text.contains("/kg")
+                }
+                
+                if isWeightBasedPrice || isCountBasedPrice {
+                    print("Detected \(isWeightBasedPrice ? "weight" : "count")-based price")
                     
                     // Look for item name in the line above
                     let aboveLineTolerance: CGFloat = 0.03 // Slightly more lenient for above line
@@ -112,7 +117,7 @@ class ReceiptProcessor {
                                otherText.boundingBox.boundingBox.origin.y < text.boundingBox.boundingBox.origin.y // To the left of price
                     }
                     
-                    print("Potential item names above weight line: ")
+                    print("Potential item names above line: ")
                     for potentialItem in potentialItemNames {
                         let box = potentialItem.boundingBox.boundingBox
                         print("  - \"\(potentialItem.text)\"")
@@ -122,30 +127,63 @@ class ReceiptProcessor {
                     // Find the best matching item name from above
                     if let bestItem = findBestMatchingItem(potentialItemNames, priceText: text) {
                         let itemName = bestItem.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                        print("Found weight-based item: \"\(itemName)\"")
+                        print("Found \(isWeightBasedPrice ? "weight" : "count")-based item: \"\(itemName)\"")
                         
-                        // Extract weight and price per kg if available
+                        // Extract weight/quantity and price per unit if available
                         var weight: Decimal?
                         var pricePerKg: Decimal?
+                        var quantity: Int = 1
+                        var pricePerCount: Decimal?
                         
                         for sameLineText in sameLineTexts {
                             let text = sameLineText.text.lowercased()
-                            if let weightMatch = text.range(of: #"(\d+\.?\d*)\s*kg"#, options: .regularExpression) {
-                                let weightStr = String(text[weightMatch])
-                                weight = Decimal(string: weightStr.replacingOccurrences(of: "kg", with: "").trimmingCharacters(in: .whitespaces))
-                            }
-                            if let priceMatch = text.range(of: #"\$(\d+\.?\d*)/kg"#, options: .regularExpression) {
-                                let priceStr = String(text[priceMatch])
-                                pricePerKg = Decimal(string: priceStr.replacingOccurrences(of: "$/kg", with: "").trimmingCharacters(in: .whitespaces))
+                            
+                            if isWeightBasedPrice {
+                                // Extract weight
+                                if let weightMatch = text.range(of: #"(\d+\.?\d*)\s*kg"#, options: .regularExpression) {
+                                    let weightStr = String(text[weightMatch])
+                                    weight = Decimal(string: weightStr.replacingOccurrences(of: "kg", with: "").trimmingCharacters(in: .whitespaces))
+                                }
+                                // Extract price per kg
+                                if let priceMatch = text.range(of: #"@\s*\$(\d+\.?\d*)/kg"#, options: .regularExpression) {
+                                    let priceStr = String(text[priceMatch])
+                                    print("Found price per kg string: \"\(priceStr)\"")
+                                    if let numberRange = priceStr.range(of: #"\d+\.?\d*"#, options: .regularExpression) {
+                                        let numberStr = String(priceStr[numberRange])
+                                        pricePerKg = Decimal(string: numberStr)
+                                        print("Extracted price per kg: \(pricePerKg ?? 0)")
+                                    }
+                                }
+                            } else if isCountBasedPrice {
+                                // Extract quantity
+                                if let countMatch = text.range(of: #"(\d+)\s*@"#, options: .regularExpression) {
+                                    let countStr = String(text[countMatch])
+                                    if let count = Int(countStr.replacingOccurrences(of: "@", with: "").trimmingCharacters(in: .whitespaces)) {
+                                        quantity = count
+                                        print("Extracted quantity: \(quantity)")
+                                    }
+                                }
+                                // Extract price per count
+                                if let priceMatch = text.range(of: #"@\s*\$(\d+\.?\d*)"#, options: .regularExpression) {
+                                    let priceStr = String(text[priceMatch])
+                                    print("Found price per count string: \"\(priceStr)\"")
+                                    if let numberRange = priceStr.range(of: #"\d+\.?\d*"#, options: .regularExpression) {
+                                        let numberStr = String(priceStr[numberRange])
+                                        pricePerCount = Decimal(string: numberStr)
+                                        print("Extracted price per count: \(pricePerCount ?? 0)")
+                                    }
+                                }
                             }
                         }
                         
                         items.append(ReceiptItem(
                             name: itemName,
                             price: price,
+                            quantity: quantity,
                             boundingBox: bestItem.boundingBox.boundingBox,
                             weight: weight,
-                            pricePerKg: pricePerKg
+                            pricePerKg: pricePerKg,
+                            pricePerCount: pricePerCount
                         ))
                     }
                 } else {
@@ -166,9 +204,11 @@ class ReceiptProcessor {
                         items.append(ReceiptItem(
                             name: itemName,
                             price: price,
+                            quantity: 1,
                             boundingBox: bestItem.boundingBox.boundingBox,
                             weight: nil,
-                            pricePerKg: nil
+                            pricePerKg: nil,
+                            pricePerCount: nil
                         ))
                     }
                 }
