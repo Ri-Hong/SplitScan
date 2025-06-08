@@ -177,7 +177,7 @@ class ReceiptProcessor {
                         }
                         
                         items.append(ReceiptItem(
-                            name: itemName,
+                            name: cleanItemName(itemName),
                             price: price,
                             quantity: quantity,
                             boundingBox: bestItem.boundingBox.boundingBox,
@@ -202,7 +202,7 @@ class ReceiptProcessor {
                         print("Found regular item: \"\(itemName)\"")
                         
                         items.append(ReceiptItem(
-                            name: itemName,
+                            name: cleanItemName(itemName),
                             price: price,
                             quantity: 1,
                             boundingBox: bestItem.boundingBox.boundingBox,
@@ -355,5 +355,52 @@ class ReceiptProcessor {
             
             return (item: item, score: totalScore)
         }.max(by: { $0.score < $1.score })?.item
+    }
+    
+    /// Clean up item name by removing numbers from the beginning and tax codes from the end
+    /// - Parameter name: The original item name
+    /// - Returns: Cleaned item name with numbers removed from the beginning and tax codes from the end
+    private func cleanItemName(_ name: String) -> String {
+        var cleanedName = name
+        
+        // Step 1: Remove numbers and parentheses from the beginning of the name
+        // Pattern matches: digits, parentheses, and any combination at the start
+        let beginningPattern = #"^[\d\s\(\)]+"#
+        
+        guard let beginningRegex = try? NSRegularExpression(pattern: beginningPattern) else {
+            print("Failed to create regex for beginning name cleaning")
+            return name
+        }
+        
+        let beginningRange = NSRange(cleanedName.startIndex..., in: cleanedName)
+        cleanedName = beginningRegex.stringByReplacingMatches(
+            in: cleanedName,
+            range: beginningRange,
+            withTemplate: ""
+        ).trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Step 2: Remove tax codes (HMRJ or MRJ) from the end of the name
+        // Pattern matches: HMRJ or MRJ at the end, possibly preceded by whitespace
+        let endingPattern = #"\s*(HMRJ|MRJ)\s*$"#
+        
+        guard let endingRegex = try? NSRegularExpression(pattern: endingPattern) else {
+            print("Failed to create regex for ending name cleaning")
+            return cleanedName
+        }
+        
+        let endingRange = NSRange(cleanedName.startIndex..., in: cleanedName)
+        cleanedName = endingRegex.stringByReplacingMatches(
+            in: cleanedName,
+            range: endingRange,
+            withTemplate: ""
+        ).trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        if cleanedName.isEmpty {
+            // If cleaning resulted in empty string, return original
+            return name
+        }
+        
+        print("Cleaned item name: \"\(name)\" -> \"\(cleanedName)\"")
+        return cleanedName
     }
 } 
