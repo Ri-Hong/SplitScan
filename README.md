@@ -22,7 +22,8 @@ SplitSnap processes receipt images to extract items and their prices using a com
    b. **Weight-Based Item Detection**
    - Check if the line contains weight indicators ("@", "/kg", "kg")
    - If weight-based:
-     * Look for item name in the line above (within 0.03 vertical tolerance)
+     * Search line by line above the price line (up to 5 lines)
+     * Use scoring system to find the best matching item name
      * Extract weight and price per kg using regex patterns
      * Store both the total price and weight information
    - If regular item:
@@ -30,13 +31,20 @@ SplitSnap processes receipt images to extract items and their prices using a com
 
 3. **Item Name Selection Scoring System**
    For each potential item name, calculate a score based on:
-   - Horizontal distance (35% weight): Prefer items to the left of price
-   - Vertical alignment (25% weight): Prefer items on same row
+   - Horizontal distance (30% weight): Prefer items to the left of price
+   - Line proximity (30% weight): Prefer items closer to price line, but allow for gaps
    - Text length (15% weight): Prefer longer text for item names
    - Letter ratio (15% weight): Prefer text with more letters over numbers
    - Position (10% weight): Prefer items on left side of receipt
 
-4. **Special Cases**
+4. **Line-by-Line Search for Weight-Based Items**
+   - Search each line above the price line systematically
+   - Use approximate line spacing of 0.02 to identify line positions
+   - Score each potential item name found on each line
+   - Stop searching when a good match is found (score > 0.5) or after 5 lines
+   - This handles cases where item names are separated from prices by multiple lines
+
+5. **Special Cases**
    - Handle weight-based items (e.g., "1.220 kg @ $1.30/kg")
    - Handle count-based items (e.g., "2 @ $2.00")
    - Process multi-line items (item name above weight/price)

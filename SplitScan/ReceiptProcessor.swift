@@ -104,30 +104,55 @@ class ReceiptProcessor {
                 if isWeightBasedPrice || isCountBasedPrice {
                     print("Detected \(isWeightBasedPrice ? "weight" : "count")-based price")
                     
-                    // Look for item name in the line above
-                    let aboveLineTolerance: CGFloat = 0.03 // Slightly more lenient for above line
-                    let potentialItemNames = sortedTexts.filter { otherText in
-                        let otherString = otherText.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                        let otherVertical = otherText.boundingBox.boundingBox.origin.x
+                    // Search line by line above until we find a suitable item name
+                    let lineSpacing: CGFloat = 0.02 // Approximate spacing between lines
+                    let maxLinesToSearch: Int = 5 // Prevent infinite search
+                    var bestItem: RecognizedText? = nil
+                    var bestScore: Double = 0.0
+                    
+                    for lineOffset in 1...maxLinesToSearch {
+                        let targetVerticalPosition = verticalPosition - (CGFloat(lineOffset) * lineSpacing)
+                        let lineTolerance: CGFloat = 0.01 // Tolerance for finding text on this specific line
                         
-                        return otherString.extractPrice() == nil && // Not a price
-                               !isReceiptHeaderOrFooter(otherString) && // Not a header/footer
-                               otherVertical < verticalPosition && // Above current line
-                               abs(otherVertical - verticalPosition) < aboveLineTolerance && // Close enough above
-                               otherText.boundingBox.boundingBox.origin.y < text.boundingBox.boundingBox.origin.y // To the left of price
+                        let textsOnLine = sortedTexts.filter { otherText in
+                            let otherString = otherText.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let otherVertical = otherText.boundingBox.boundingBox.origin.x
+                            
+                            return otherString.extractPrice() == nil && // Not a price
+                                   !isReceiptHeaderOrFooter(otherString) && // Not a header/footer
+                                   abs(otherVertical - targetVerticalPosition) < lineTolerance && // On this specific line
+                                   otherText.boundingBox.boundingBox.origin.y < text.boundingBox.boundingBox.origin.y // To the left of price
+                        }
+                        
+                        print("Line \(lineOffset) above price line - found \(textsOnLine.count) potential items:")
+                        for potentialItem in textsOnLine {
+                            let box = potentialItem.boundingBox.boundingBox
+                            print("  - \"\(potentialItem.text)\"")
+                            print("    Position: x=\(box.origin.x), y=\(box.origin.y)")
+                        }
+                        
+                        // Score each text on this line
+                        for potentialItem in textsOnLine {
+                            let score = calculateItemScore(potentialItem, priceText: text, lineOffset: lineOffset)
+                            print("  Score for \"\(potentialItem.text)\": \(score)")
+                            
+                            if score > bestScore {
+                                bestScore = score
+                                bestItem = potentialItem
+                            }
+                        }
+                        
+                        // If we found a good match (score above threshold), stop searching
+                        if bestScore > 0.5 {
+                            print("Found good match with score \(bestScore), stopping search")
+                            break
+                        }
                     }
                     
-                    print("Potential item names above line: ")
-                    for potentialItem in potentialItemNames {
-                        let box = potentialItem.boundingBox.boundingBox
-                        print("  - \"\(potentialItem.text)\"")
-                        print("    Position: x=\(box.origin.x), y=\(box.origin.y)")
-                    }
-                    
-                    // Find the best matching item name from above
-                    if let bestItem = findBestMatchingItem(potentialItemNames, priceText: text) {
+                    // Use the best item found, if any
+                    if let bestItem = bestItem {
                         let itemName = bestItem.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                        print("Found \(isWeightBasedPrice ? "weight" : "count")-based item: \"\(itemName)\"")
+                        print("Found \(isWeightBasedPrice ? "weight" : "count")-based item: \"\(itemName)\" with score \(bestScore)")
                         
                         // Extract weight/quantity and price per unit if available
                         var weight: Decimal?
@@ -363,6 +388,40 @@ class ReceiptProcessor {
             
             return (item: item, score: totalScore)
         }.max(by: { $0.score < $1.score })?.item
+    }
+    
+    /// Calculate a score for how well a potential item matches the price
+    private func calculateItemScore(_ item: RecognizedText, priceText: RecognizedText, lineOffset: Int) -> Double {
+        let itemBox = item.boundingBox.boundingBox
+        let priceBox = priceText.boundingBox.boundingBox
+        
+        // 1. Horizontal distance score (prefer items to the left of price)
+        let horizontalDistance = priceBox.origin.y - itemBox.origin.y
+        let horizontalScore = horizontalDistance > 0 ? 1.0 : 0.0
+        
+        // 2. Line proximity score (prefer items closer to price line, but allow for gaps)
+        let lineProximityScore = max(0.0, 1.0 - (Double(lineOffset) * 0.1)) // Reduce score by 0.1 per line
+        
+        // 3. Text length score (prefer longer text for item names)
+        let lengthScore = min(Double(item.text.count) / 20.0, 1.0)
+        
+        // 4. Letter vs Number ratio score (prefer text with more letters)
+        let letterCount = item.text.filter { $0.isLetter }.count
+        let numberCount = item.text.filter { $0.isNumber }.count
+        let totalChars = item.text.count
+        let letterRatio = totalChars > 0 ? Double(letterCount) / Double(totalChars) : 0.0
+        let letterScore = letterRatio
+        
+        // 5. Position score (prefer items in the left side of receipt)
+        let positionScore = 1.0 - (itemBox.origin.y / 0.5)
+        
+        let totalScore = (horizontalScore * 0.30) + 
+                        (lineProximityScore * 0.30) + 
+                        (lengthScore * 0.15) + 
+                        (letterScore * 0.15) + 
+                        (positionScore * 0.10)
+        
+        return totalScore
     }
     
     /// Clean up item name by removing numbers from the beginning and tax codes from the end
