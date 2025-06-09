@@ -345,13 +345,21 @@ class ReceiptProcessor {
             // 3. Text length score (prefer longer text for item names)
             let lengthScore = min(Double(item.text.count) / 20.0, 1.0)
             
-            // 4. Position score (prefer items in the left side of receipt)
+            // 4. Letter vs Number ratio score (prefer text with more letters)
+            let letterCount = item.text.filter { $0.isLetter }.count
+            let numberCount = item.text.filter { $0.isNumber }.count
+            let totalChars = item.text.count
+            let letterRatio = totalChars > 0 ? Double(letterCount) / Double(totalChars) : 0.0
+            let letterScore = letterRatio
+            
+            // 5. Position score (prefer items in the left side of receipt)
             let positionScore = 1.0 - (itemBox.origin.y / 0.5)
             
-            let totalScore = (horizontalScore * 0.4) + 
-                            (verticalScore * 0.3) + 
-                            (lengthScore * 0.2) + 
-                            (positionScore * 0.1)
+            let totalScore = (horizontalScore * 0.35) + 
+                            (verticalScore * 0.25) + 
+                            (lengthScore * 0.15) + 
+                            (letterScore * 0.15) + 
+                            (positionScore * 0.10)
             
             return (item: item, score: totalScore)
         }.max(by: { $0.score < $1.score })?.item

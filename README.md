@@ -1,7 +1,7 @@
-# SplitScan Receipt Processing Algorithm
+# SplitSnap Receipt Processing Algorithm
 
 ## Overview
-SplitScan processes receipt images to extract items and their prices using a combination of text recognition and spatial analysis.
+SplitSnap processes receipt images to extract items and their prices using a combination of text recognition and spatial analysis. The Apple vision framework returns a list of recognized text and their location on the image. We then apply an algorithm to group items with thier price, determine quantity, idenfity taxable items, etc.
 
 ## Algorithm Steps
 
@@ -12,7 +12,7 @@ SplitScan processes receipt images to extract items and their prices using a com
    - Use a tolerance of 0.05 to group nearby prices
 
 2. **Item Processing**
-   For each price found:
+   For each price in the price column:
    
    a. **Same Line Analysis**
    - Look for text on the same line as the price (within 0.01 vertical tolerance)
@@ -30,9 +30,10 @@ SplitScan processes receipt images to extract items and their prices using a com
 
 3. **Item Name Selection Scoring System**
    For each potential item name, calculate a score based on:
-   - Horizontal distance (40% weight): Prefer items to the left of price
-   - Vertical alignment (30% weight): Prefer items on same row
-   - Text length (20% weight): Prefer longer text for item names
+   - Horizontal distance (35% weight): Prefer items to the left of price
+   - Vertical alignment (25% weight): Prefer items on same row
+   - Text length (15% weight): Prefer longer text for item names
+   - Letter ratio (15% weight): Prefer text with more letters over numbers
    - Position (10% weight): Prefer items on left side of receipt
 
 4. **Special Cases**
