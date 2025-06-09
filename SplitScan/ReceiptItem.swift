@@ -9,9 +9,10 @@ struct ReceiptItem: Identifiable {
     let weight: Decimal?
     let pricePerKg: Decimal?
     let pricePerCount: Decimal?  // New field for count-based items
+    let isTaxed: Bool  // New field to track if item is taxed
     
     init(name: String, price: Decimal, quantity: Int = 1, boundingBox: CGRect, 
-         weight: Decimal? = nil, pricePerKg: Decimal? = nil, pricePerCount: Decimal? = nil) {
+         weight: Decimal? = nil, pricePerKg: Decimal? = nil, pricePerCount: Decimal? = nil, isTaxed: Bool = false) {
         self.name = name
         self.price = price
         self.quantity = quantity
@@ -19,6 +20,7 @@ struct ReceiptItem: Identifiable {
         self.weight = weight
         self.pricePerKg = pricePerKg
         self.pricePerCount = pricePerCount
+        self.isTaxed = isTaxed
     }
 }
 
@@ -36,5 +38,34 @@ extension String {
             .replacingOccurrences(of: "$", with: "")
         
         return Decimal(string: priceString)
+    }
+    
+    /// Check if the string contains a tax code (HMRJ or MRJ)
+    func containsTaxCode() -> Bool {
+        let taxPatterns = ["HMRJ", "MRJ"]
+        let upperText = self.uppercased()
+        return taxPatterns.contains { pattern in
+            upperText.contains(pattern)
+        }
+    }
+    
+    /// Extract tax code from the string if present
+    func extractTaxCode() -> String? {
+        let taxPatterns = ["HMRJ", "MRJ"]
+        let upperText = self.uppercased()
+        
+        for pattern in taxPatterns {
+            if upperText.contains(pattern) {
+                return pattern
+            }
+        }
+        return nil
+    }
+    
+    /// Check if the string contains a tax code that indicates the item is taxed
+    /// HMRJ = taxed, MRJ = not taxed
+    func isTaxed() -> Bool {
+        let upperText = self.uppercased()
+        return upperText.contains("HMRJ")
     }
 } 

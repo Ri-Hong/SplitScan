@@ -29,7 +29,14 @@ SplitSnap processes receipt images to extract items and their prices using a com
    - If regular item:
      * Use scoring system to find best matching item name
 
-3. **Item Name Selection Scoring System**
+3. **Tax Detection**
+   - Check if tax codes are present in the item name or on the same line as the price
+   - HMRJ = item is taxed
+   - MRJ = item is not taxed (but still a tax code)
+   - Set the `isTaxed` property based on HMRJ detection
+   - Both HMRJ and MRJ codes are removed from the final item name during cleaning
+
+4. **Item Name Selection Scoring System**
    For each potential item name, calculate a score based on:
    - Horizontal distance (30% weight): Prefer items to the left of price
    - Line proximity (30% weight): Prefer items closer to price line, but allow for gaps
@@ -37,18 +44,19 @@ SplitSnap processes receipt images to extract items and their prices using a com
    - Letter ratio (15% weight): Prefer text with more letters over numbers
    - Position (10% weight): Prefer items on left side of receipt
 
-4. **Line-by-Line Search for Weight-Based Items**
+5. **Line-by-Line Search for Weight-Based Items**
    - Search each line above the price line systematically
    - Use approximate line spacing of 0.02 to identify line positions
    - Score each potential item name found on each line
    - Stop searching when a good match is found (score > 0.5) or after 5 lines
    - This handles cases where item names are separated from prices by multiple lines
 
-5. **Special Cases**
+6. **Special Cases**
    - Handle weight-based items (e.g., "1.220 kg @ $1.30/kg")
    - Handle count-based items (e.g., "2 @ $2.00")
    - Process multi-line items (item name above weight/price)
    - Filter out receipt headers and footers
+   - Detect and track tax status for items
 
 ## Coordinate System
 - x-coordinate: Vertical position (top to bottom)
@@ -58,9 +66,10 @@ SplitSnap processes receipt images to extract items and their prices using a com
 
 ## Output
 Each processed item includes:
-- Item name
+- Item name (cleaned, with tax codes removed)
 - Price
 - Bounding box coordinates
 - Optional weight and price per kg for weight-based items
+- Tax status (isTaxed boolean)
 
 

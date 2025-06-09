@@ -201,6 +201,9 @@ class ReceiptProcessor {
                             }
                         }
                         
+                        // Check if item is taxed
+                        let isTaxed = isItemTaxed(sameLineTexts: sameLineTexts, itemName: itemName)
+                        
                         items.append(ReceiptItem(
                             name: cleanItemName(itemName),
                             price: price,
@@ -208,7 +211,8 @@ class ReceiptProcessor {
                             boundingBox: bestItem.boundingBox.boundingBox,
                             weight: weight,
                             pricePerKg: pricePerKg,
-                            pricePerCount: pricePerCount
+                            pricePerCount: pricePerCount,
+                            isTaxed: isTaxed
                         ))
                     }
                 } else {
@@ -226,6 +230,9 @@ class ReceiptProcessor {
                         let itemName = bestItem.text.trimmingCharacters(in: .whitespacesAndNewlines)
                         print("Found regular item: \"\(itemName)\"")
                         
+                        // Check if item is taxed
+                        let isTaxed = isItemTaxed(sameLineTexts: sameLineTexts, itemName: itemName)
+                        
                         items.append(ReceiptItem(
                             name: cleanItemName(itemName),
                             price: price,
@@ -233,7 +240,8 @@ class ReceiptProcessor {
                             boundingBox: bestItem.boundingBox.boundingBox,
                             weight: nil,
                             pricePerKg: nil,
-                            pricePerCount: nil
+                            pricePerCount: nil,
+                            isTaxed: isTaxed
                         ))
                     }
                 }
@@ -243,7 +251,8 @@ class ReceiptProcessor {
         print("\n=== Receipt Processing Complete ===")
         print("Total items found: \(items.count)")
         for (index, item) in items.enumerated() {
-            print("Item \(index + 1): \"\(item.name)\" - $\(item.price)")
+            let taxStatus = item.isTaxed ? " (Taxed)" : ""
+            print("Item \(index + 1): \"\(item.name)\" - $\(item.price)\(taxStatus)")
         }
         print("===============================\n")
         
@@ -327,6 +336,32 @@ class ReceiptProcessor {
         }
         
         return isHeaderFooter
+    }
+    
+    /// Check if an item is taxed by looking for tax codes in the same line as the price
+    /// - Parameters:
+    ///   - sameLineTexts: All texts on the same line as the price
+    ///   - itemName: The name of the item (in case tax code is part of the name)
+    /// - Returns: True if the item is taxed
+    private func isItemTaxed(sameLineTexts: [RecognizedText], itemName: String) -> Bool {
+        // Check if tax code is in the item name itself
+        if itemName.isTaxed() {
+            print("Found HMRJ tax code in item name: \"\(itemName)\" - Item is taxed")
+            return true
+        }
+        
+        // Check if there's a separate tax code text on the same line
+        for sameLineText in sameLineTexts {
+            let textString = sameLineText.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if textString.isTaxed() {
+                print("Found separate HMRJ tax code: \"\(textString)\" - Item is taxed")
+                return true
+            } else if textString.containsTaxCode() && !textString.isTaxed() {
+                print("Found MRJ tax code: \"\(textString)\" - Item is NOT taxed")
+            }
+        }
+        
+        return false
     }
     
     /// Try to extract an item name from a line that might contain a price

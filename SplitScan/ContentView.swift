@@ -2,6 +2,9 @@ import SwiftUI
 import PhotosUI
 import Vision
 
+// Constants
+private let TAX_RATE: Decimal = 1.13
+
 struct ContentView: View {
     @StateObject private var viewModel = ReceiptViewModel()
     @State private var isShowingImagePicker = false
@@ -286,10 +289,20 @@ struct ReceiptResultView: View {
                         HStack {
                             Text(item.name)
                                 .font(.body)
+                            
                             Spacer()
-                            Text(String(format: "$%.2f", NSDecimalNumber(decimal: item.price).doubleValue))
-                                .font(.body)
-                                .bold()
+                            
+                            HStack(spacing: 4) {
+                                if item.isTaxed {
+                                    Image(systemName: "percent")
+                                        .font(.caption)
+                                        .foregroundColor(.red)
+                                }
+                                
+                                Text(String(format: "$%.2f", NSDecimalNumber(decimal: item.isTaxed ? item.price * TAX_RATE : item.price).doubleValue))
+                                    .font(.body)
+                                    .bold()
+                            }
                         }
                         
                         // Secondary line with additional details
@@ -328,14 +341,46 @@ struct ReceiptResultView: View {
                 
                 if !viewModel.receiptItems.isEmpty {
                     Divider()
-                    let total = viewModel.receiptItems.reduce(Decimal(0)) { $0 + $1.price }
-                    HStack {
-                        Text("Total:")
-                            .font(.headline)
-                        Spacer()
-                        Text(String(format: "$%.2f", NSDecimalNumber(decimal: total).doubleValue))
-                            .font(.headline)
-                            .bold()
+                    
+                    // Calculate totals
+                    let total = viewModel.receiptItems.reduce(Decimal(0)) { $0 + ($1.isTaxed ? $1.price * TAX_RATE : $1.price) }
+                    let taxedItems = viewModel.receiptItems.filter { $0.isTaxed }
+                    let taxedTotal = taxedItems.reduce(Decimal(0)) { $0 + ($1.price * TAX_RATE) }
+                    let untaxedTotal = viewModel.receiptItems.filter { !$0.isTaxed }.reduce(Decimal(0)) { $0 + $1.price }
+                    
+                    VStack(spacing: 8) {
+                        HStack {
+                            Text("Total:")
+                                .font(.headline)
+                            Spacer()
+                            Text(String(format: "$%.2f", NSDecimalNumber(decimal: total).doubleValue))
+                                .font(.headline)
+                                .bold()
+                        }
+                        
+                        if !taxedItems.isEmpty {
+                            HStack {
+                                Text("Taxed Items (\(taxedItems.count)):")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text(String(format: "$%.2f", NSDecimalNumber(decimal: taxedTotal).doubleValue))
+                                    .font(.subheadline)
+                                    .foregroundColor(.red)
+                            }
+                        }
+                        
+                        if !viewModel.receiptItems.filter({ !$0.isTaxed }).isEmpty {
+                            HStack {
+                                Text("Untaxed Items (\(viewModel.receiptItems.filter({ !$0.isTaxed }).count)):")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text(String(format: "$%.2f", NSDecimalNumber(decimal: untaxedTotal).doubleValue))
+                                    .font(.subheadline)
+                                    .foregroundColor(.green)
+                            }
+                        }
                     }
                     .padding()
                     .background(Color.gray.opacity(0.1))
