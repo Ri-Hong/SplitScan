@@ -11,6 +11,7 @@ struct SplittingView: View {
     @State private var showDebugView = false
     @State private var selectedItem: ReceiptItem?
     @State private var showItemAssignment = false
+    @State private var showSummary = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -181,6 +182,29 @@ struct SplittingView: View {
                     .background(Color.gray.opacity(0.1))
                 }
             }
+            
+            // Done Button
+            VStack(spacing: 0) {
+                Divider()
+                
+                Button(action: {
+                    showSummary = true
+                }) {
+                    HStack {
+                        Spacer()
+                        Text("Done")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                        Spacer()
+                    }
+                    .padding()
+                    .background(Color.blue)
+                    .cornerRadius(10)
+                }
+                .padding()
+                .background(Color.white)
+            }
         }
         .navigationTitle("Split Receipt")
         .navigationBarTitleDisplayMode(.inline)
@@ -216,6 +240,9 @@ struct SplittingView: View {
                 }
             }
         })
+        .sheet(isPresented: $showSummary) {
+            SummaryView(items: viewModel.receiptItems, splitViewModel: splitViewModel)
+        }
     }
 }
 private let TAG_HEIGHT: CGFloat = 50
