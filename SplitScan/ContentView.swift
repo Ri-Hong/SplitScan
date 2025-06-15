@@ -208,79 +208,82 @@ struct ReceiptResultView: View {
     let image: UIImage
     let recognizedTexts: [SplitScan.RecognizedText]
     @ObservedObject var viewModel: ReceiptViewModel
+    @State private var showDebugView = false
     
     var body: some View {
         VStack {
-            // Debug visualization section
-            ScrollView {
-                VStack(spacing: 20) {
-                    if let image = viewModel.allBoxesImage {
-                        VStack {
-                            Text("All Recognized Text")
-                                .font(.headline)
-                                .foregroundColor(.gray)
-                            Image(uiImage: image)
-                                .resizable()
-                                .interpolation(.none)
-                                .aspectRatio(contentMode: .fit)
-                                .frame(maxWidth: .infinity)
-                                .background(Color.gray.opacity(0.1))
-                                .border(Color.gray, width: 1)
+            // Debug button
+            if showDebugView {
+                ScrollView {
+                    VStack(spacing: 20) {
+                        if let image = viewModel.allBoxesImage {
+                            VStack {
+                                Text("All Recognized Text")
+                                    .font(.headline)
+                                    .foregroundColor(.gray)
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .interpolation(.none)
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(maxWidth: .infinity)
+                                    .background(Color.gray.opacity(0.1))
+                                    .border(Color.gray, width: 1)
+                            }
+                            .padding(.horizontal)
                         }
-                        .padding(.horizontal)
-                    }
-                    
-                    if let image = viewModel.priceBoxesImage {
-                        VStack {
-                            Text("Price Boxes")
-                                .font(.headline)
-                                .foregroundColor(.gray)
-                            Image(uiImage: image)
-                                .resizable()
-                                .interpolation(.none)
-                                .aspectRatio(contentMode: .fit)
-                                .frame(maxWidth: .infinity)
-                                .background(Color.gray.opacity(0.1))
-                                .border(Color.gray, width: 1)
+                        
+                        if let image = viewModel.priceBoxesImage {
+                            VStack {
+                                Text("Price Boxes")
+                                    .font(.headline)
+                                    .foregroundColor(.gray)
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .interpolation(.none)
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(maxWidth: .infinity)
+                                    .background(Color.gray.opacity(0.1))
+                                    .border(Color.gray, width: 1)
+                            }
+                            .padding(.horizontal)
                         }
-                        .padding(.horizontal)
-                    }
-                    
-                    if let image = viewModel.priceColumnImage {
-                        VStack {
-                            Text("Price Column")
-                                .font(.headline)
-                                .foregroundColor(.gray)
-                            Image(uiImage: image)
-                                .resizable()
-                                .interpolation(.none)
-                                .aspectRatio(contentMode: .fit)
-                                .frame(maxWidth: .infinity)
-                                .background(Color.gray.opacity(0.1))
-                                .border(Color.gray, width: 1)
+                        
+                        if let image = viewModel.priceColumnImage {
+                            VStack {
+                                Text("Price Column")
+                                    .font(.headline)
+                                    .foregroundColor(.gray)
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .interpolation(.none)
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(maxWidth: .infinity)
+                                    .background(Color.gray.opacity(0.1))
+                                    .border(Color.gray, width: 1)
+                            }
+                            .padding(.horizontal)
                         }
-                        .padding(.horizontal)
-                    }
-                    
-                    if let image = viewModel.priceAndItemBoxesImage {
-                        VStack {
-                            Text("Price and Item Boxes")
-                                .font(.headline)
-                                .foregroundColor(.gray)
-                            Image(uiImage: image)
-                                .resizable()
-                                .interpolation(.none)
-                                .aspectRatio(contentMode: .fit)
-                                .frame(maxWidth: .infinity)
-                                .background(Color.gray.opacity(0.1))
-                                .border(Color.gray, width: 1)
+                        
+                        if let image = viewModel.priceAndItemBoxesImage {
+                            VStack {
+                                Text("Price and Item Boxes")
+                                    .font(.headline)
+                                    .foregroundColor(.gray)
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .interpolation(.none)
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(maxWidth: .infinity)
+                                    .background(Color.gray.opacity(0.1))
+                                    .border(Color.gray, width: 1)
+                            }
+                            .padding(.horizontal)
                         }
-                        .padding(.horizontal)
                     }
+                    .padding(.vertical)
                 }
-                .padding(.vertical)
+                .background(Color.gray.opacity(0.1))
             }
-            .background(Color.gray.opacity(0.1))
             
             // Original receipt items list
             List {
@@ -288,7 +291,7 @@ struct ReceiptResultView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Text(item.name)
-                                .font(.body)
+                                .font(.body) 
                             
                             Spacer()
                             
@@ -386,9 +389,20 @@ struct ReceiptResultView: View {
                     .background(Color.gray.opacity(0.1))
                 }
             }
+            .navigationTitle("Scan Result")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        showDebugView.toggle()
+                    }) {
+                        Image(systemName: showDebugView ? "eye.slash" : "eye")
+                            .foregroundColor(.accentColor)
+                            .font(.headline)
+                    }
+                }
+            }
         }
-        .navigationTitle("Scan Result")
-        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
