@@ -95,7 +95,7 @@ struct ContentView: View {
             }
             .background(
                 NavigationLink(
-                    destination: ReceiptResultView(
+                    destination: SplittingView(
                         image: viewModel.selectedImage ?? UIImage(),
                         recognizedTexts: viewModel.recognizedTexts,
                         viewModel: viewModel
@@ -389,6 +389,7 @@ struct ReceiptResultView: View {
                     .background(Color.gray.opacity(0.1))
                 }
             }
+            .safeAreaPadding(.vertical)
             .navigationTitle("Scan Result")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
