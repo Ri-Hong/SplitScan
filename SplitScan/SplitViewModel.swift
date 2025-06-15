@@ -88,12 +88,25 @@ class SplitViewModel: ObservableObject {
     
     func getTotalForTag(_ tag: SplitTag, items: [ReceiptItem]) -> Decimal {
         var total: Decimal = 0
+        
+        // Add explicitly assigned items
         for item in items {
             if isItemAssignedToTag(itemId: item.id, tagId: tag.id) {
                 let itemPrice = item.isTaxed ? item.price * TAX_RATE : item.price
                 total += itemPrice
             }
         }
+        
+        // Add default split from unassigned items
+        let unassignedItems = getUnassignedItems(items: items)
+        if !unassignedItems.isEmpty && !tags.isEmpty {
+            let unassignedTotal = unassignedItems.reduce(Decimal(0)) { total, item in
+                total + (item.isTaxed ? item.price * TAX_RATE : item.price)
+            }
+            let defaultSplitPerTag = unassignedTotal / Decimal(tags.count)
+            total += defaultSplitPerTag
+        }
+        
         return total
     }
     
@@ -109,6 +122,11 @@ class SplitViewModel: ObservableObject {
         return unassignedItems.reduce(Decimal(0)) { total, item in
             total + (item.isTaxed ? item.price * TAX_RATE : item.price)
         }
+    }
+    
+    func getDefaultSplitPerTag(items: [ReceiptItem]) -> Decimal {
+        let unassignedTotal = getUnassignedTotal(items: items)
+        return tags.isEmpty ? 0 : unassignedTotal / Decimal(tags.count)
     }
 }
 

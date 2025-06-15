@@ -29,10 +29,14 @@ struct SplittingView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
                         ForEach(splitViewModel.tags) { tag in
-                            TagView(tag: tag, total: splitViewModel.getTotalForTag(tag, items: viewModel.receiptItems))
-                                .onTapGesture {
-                                    splitViewModel.startEditingTag(tag)
-                                }
+                            TagView(
+                                tag: tag, 
+                                total: splitViewModel.getTotalForTag(tag, items: viewModel.receiptItems),
+                                defaultSplit: splitViewModel.getDefaultSplitPerTag(items: viewModel.receiptItems)
+                            )
+                            .onTapGesture {
+                                splitViewModel.startEditingTag(tag)
+                            }
                         }
                         
                         // Add Tag Button (plus icon)
@@ -249,6 +253,7 @@ private let TAG_HEIGHT: CGFloat = 50
 struct TagView: View {
     let tag: SplitTag
     let total: Decimal
+    let defaultSplit: Decimal
 
     var body: some View {
         VStack(spacing: 4) {
@@ -382,6 +387,20 @@ struct ItemRowView: View {
                         .cornerRadius(4)
                     }
                 }
+            } else if !splitViewModel.tags.isEmpty {
+                // Show that item will be split by default
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.triangle.branch")
+                        .font(.caption2)
+                        .foregroundColor(.blue)
+                    Text("Split between all (\(splitViewModel.tags.count))")
+                        .font(.caption2)
+                        .foregroundColor(.blue)
+                }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.blue.opacity(0.1))
+                .cornerRadius(4)
             }
         }
         .padding(.vertical, 4)
@@ -462,6 +481,30 @@ struct ItemAssignmentView: View {
                                 .cornerRadius(8)
                             }
                             .buttonStyle(PlainButtonStyle())
+                        }
+                        
+                        // Default split info
+                        let assignedTags = splitViewModel.getAssignedTagsForItem(itemId: item.id)
+                        if assignedTags.isEmpty {
+                            VStack(spacing: 8) {
+                                
+                                HStack {
+                                    Image(systemName: "info.circle")
+                                        .foregroundColor(.blue)
+                                    Text("No tags selected")
+                                        .font(.subheadline)
+                                        .foregroundColor(.blue)
+                                    Spacer()
+                                }
+                                
+                                Text("This item will be automatically split equally between all \(splitViewModel.tags.count) people.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.leading)
+                            }
+                            .padding()
+                            .background(Color.blue.opacity(0.1))
+                            .cornerRadius(8)
                         }
                     }
                 }

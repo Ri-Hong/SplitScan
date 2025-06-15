@@ -78,7 +78,9 @@ struct SummaryView: View {
                                             .cornerRadius(6)
                                         }
                                     }
-                                } else {
+                                }
+                                
+                                if assignedItems.isEmpty {
                                     Text("No items assigned")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
@@ -94,28 +96,32 @@ struct SummaryView: View {
                             )
                         }
                         
-                        // Unassigned Items Section
+                        // Shared Default Split Section
+                        let defaultSplit = splitViewModel.getDefaultSplitPerTag(items: items)
                         let unassignedItems = splitViewModel.getUnassignedItems(items: items)
-                        let unassignedTotal = splitViewModel.getUnassignedTotal(items: items)
                         
-                        if !unassignedItems.isEmpty {
+                        if defaultSplit > 0 && !unassignedItems.isEmpty {
                             VStack(spacing: 12) {
                                 HStack {
-                                    Image(systemName: "questionmark.circle.fill")
-                                        .foregroundColor(.orange)
+                                    Image(systemName: "arrow.triangle.branch")
+                                        .foregroundColor(.blue)
                                         .font(.title2)
                                     
-                                    Text("Unassigned Items")
+                                    Text("Shared Items")
                                         .font(.title2)
                                         .fontWeight(.semibold)
                                     
                                     Spacer()
                                     
-                                    Text(String(format: "$%.2f", NSDecimalNumber(decimal: unassignedTotal).doubleValue))
+                                    Text(String(format: "$%.2f", NSDecimalNumber(decimal: defaultSplit).doubleValue))
                                         .font(.title2)
                                         .fontWeight(.bold)
-                                        .foregroundColor(.orange)
+                                        .foregroundColor(.blue)
                                 }
+                                
+                                Text("Split equally between all \(splitViewModel.tags.count) people")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
                                 
                                 VStack(spacing: 8) {
                                     ForEach(unassignedItems, id: \.id) { item in
@@ -140,17 +146,17 @@ struct SummaryView: View {
                                         }
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 4)
-                                        .background(Color.orange.opacity(0.1))
+                                        .background(Color.blue.opacity(0.1))
                                         .cornerRadius(6)
                                     }
                                 }
                             }
                             .padding()
-                            .background(Color.orange.opacity(0.1))
+                            .background(Color.blue.opacity(0.1))
                             .cornerRadius(12)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                                    .stroke(Color.blue.opacity(0.3), lineWidth: 1)
                             )
                         }
                     }
