@@ -51,6 +51,9 @@ class LiveTextDetectionCameraViewController: UIViewController {
     private var photoOutput: AVCapturePhotoOutput?
     private var isProcessingFrame = false
     private var frameCounter = 0
+    private var lastAutoCaptureTime: Date = Date.distantPast
+    private var autoCaptureDelay: TimeInterval = 2.0 // 2 second delay between auto captures
+    private var isAutoCaptureEnabled: Bool = true
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -227,11 +230,39 @@ class LiveTextDetectionCameraViewController: UIViewController {
             DispatchQueue.main.async {
                 self.textDetectionOverlay?.updateBoundingBoxes(observations)
                 
-                // Update status label
+                // Analyze line spacing and provide positioning feedback
+                let positioningInstruction = self.analyzeLineSpacingAndProvideInstruction(observations)
+                
+                // Auto-capture when positioning is perfect
+                if positioningInstruction.contains("Perfect") && self.isAutoCaptureEnabled {
+                    let now = Date()
+                    if now.timeIntervalSince(self.lastAutoCaptureTime) >= self.autoCaptureDelay {
+                        self.lastAutoCaptureTime = now
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                            self?.autoCapturePhoto()
+                        }
+                    }
+                }
+                
+                // Update status label with color-coded feedback
                 if observations.count > 0 {
-                    self.statusLabel?.text = "Detected \(observations.count) text regions"
-                    self.statusLabel?.backgroundColor = UIColor.green.withAlphaComponent(0.7)
-                    self.statusContainer?.backgroundColor = UIColor.green.withAlphaComponent(0.7)
+                    let autoCaptureText = self.isAutoCaptureEnabled ? " • Auto-capturing..." : ""
+                    let baseText = "Detected \(observations.count) text regions • \(positioningInstruction)"
+                    
+                    // Color-code based on positioning quality
+                    if positioningInstruction.contains("Perfect") {
+                        self.statusLabel?.text = baseText + autoCaptureText
+                        self.statusLabel?.backgroundColor = UIColor.green.withAlphaComponent(0.7)
+                        self.statusContainer?.backgroundColor = UIColor.green.withAlphaComponent(0.7)
+                    } else if positioningInstruction.contains("too tight") || positioningInstruction.contains("too spread") {
+                        self.statusLabel?.text = baseText
+                        self.statusLabel?.backgroundColor = UIColor.orange.withAlphaComponent(0.7)
+                        self.statusContainer?.backgroundColor = UIColor.orange.withAlphaComponent(0.7)
+                    } else {
+                        self.statusLabel?.text = baseText
+                        self.statusLabel?.backgroundColor = UIColor.blue.withAlphaComponent(0.7)
+                        self.statusContainer?.backgroundColor = UIColor.blue.withAlphaComponent(0.7)
+                    }
                 } else {
                     self.statusLabel?.text = "Point camera at receipt"
                     self.statusLabel?.backgroundColor = UIColor.black.withAlphaComponent(0.7)
@@ -242,6 +273,81 @@ class LiveTextDetectionCameraViewController: UIViewController {
         
         textDetectionRequest?.recognitionLevel = .accurate
         textDetectionRequest?.usesLanguageCorrection = true
+    }
+    
+    /// Analyze the line spacing of detected text and provide camera positioning instructions
+    private func analyzeLineSpacingAndProvideInstruction(_ observations: [VNRecognizedTextObservation]) -> String {
+        guard observations.count >= 3 else {
+            return "Move closer to see more text"
+        }
+        
+        // Extract vertical positions (x coordinates in normalized space)
+        let verticalPositions = observations.map { observation in
+            observation.boundingBox.origin.x
+        }.sorted()
+        
+        // Calculate line spacing between consecutive text elements
+        var lineSpacings: [CGFloat] = []
+        for i in 1..<verticalPositions.count {
+            let spacing = verticalPositions[i] - verticalPositions[i-1]
+            // Only consider reasonable spacings (not too small, not too large)
+            if spacing > 0.005 && spacing < 0.1 {
+                lineSpacings.append(spacing)
+            }
+        }
+        
+        guard lineSpacings.count >= 2 else {
+            return "Adjust camera angle"
+        }
+        
+        // Remove outliers using IQR method
+        let sortedSpacings = lineSpacings.sorted()
+        let q1Index = sortedSpacings.count / 4
+        let q3Index = (sortedSpacings.count * 3) / 4
+        let q1 = sortedSpacings[q1Index]
+        let q3 = sortedSpacings[q3Index]
+        let iqr = q3 - q1
+        let lowerBound = q1 - (1.5 * iqr)
+        let upperBound = q3 + (1.5 * iqr)
+        
+        let filteredSpacings = sortedSpacings.filter { spacing in
+            spacing >= lowerBound && spacing <= upperBound
+        }
+        
+        guard !filteredSpacings.isEmpty else {
+            return "Adjust camera angle"
+        }
+        
+        // Calculate median line spacing from filtered data
+        let medianSpacing: CGFloat
+        if filteredSpacings.count % 2 == 0 {
+            let midIndex = filteredSpacings.count / 2
+            medianSpacing = (filteredSpacings[midIndex - 1] + filteredSpacings[midIndex]) / 2
+        } else {
+            medianSpacing = filteredSpacings[filteredSpacings.count / 2]
+        }
+        
+        // Compare with ideal line spacing (0.02)
+        let idealSpacing: CGFloat = 0.02
+        let tolerance: CGFloat = 0.005 // 0.5% tolerance
+        
+        if medianSpacing < idealSpacing - tolerance {
+            let percentageOff = ((idealSpacing - medianSpacing) / idealSpacing) * 100
+            if percentageOff > 25 {
+                return "Move much closer - lines very tight"
+            } else {
+                return "Move closer - lines too tight"
+            }
+        } else if medianSpacing > idealSpacing + tolerance {
+            let percentageOff = ((medianSpacing - idealSpacing) / idealSpacing) * 100
+            if percentageOff > 25 {
+                return "Move much farther - lines very spread"
+            } else {
+                return "Move farther - lines too spread"
+            }
+        } else {
+            return "Perfect distance ✓"
+        }
     }
     
     private func startCamera() {
@@ -263,6 +369,32 @@ class LiveTextDetectionCameraViewController: UIViewController {
     
     @objc private func cancelButtonTapped() {
         delegate?.didCancel()
+    }
+    
+    @objc private func autoCapturePhoto() {
+        guard let photoOutput = self.photoOutput else { return }
+        
+        // Provide visual feedback that auto-capture is happening
+        UIView.animate(withDuration: 0.1, animations: {
+            self.captureButton?.transform = CGAffineTransform(scaleX: 0.9, y: 0.9)
+        }) { _ in
+            UIView.animate(withDuration: 0.1) {
+                self.captureButton?.transform = CGAffineTransform.identity
+            }
+        }
+        
+        let settings = AVCapturePhotoSettings()
+        photoOutput.capturePhoto(with: settings, delegate: self)
+    }
+    
+    /// Toggle auto-capture on/off
+    func toggleAutoCapture() {
+        isAutoCaptureEnabled.toggle()
+    }
+    
+    /// Set auto-capture enabled/disabled
+    func setAutoCaptureEnabled(_ enabled: Bool) {
+        isAutoCaptureEnabled = enabled
     }
     
     override func viewDidLayoutSubviews() {
