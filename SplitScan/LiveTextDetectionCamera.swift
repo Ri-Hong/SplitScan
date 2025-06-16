@@ -121,19 +121,49 @@ class LiveTextDetectionCameraViewController: UIViewController {
         
         // Capture button
         captureButton = UIButton(type: .system)
-        captureButton?.setTitle("Capture", for: .normal)
-        captureButton?.setTitleColor(.white, for: .normal)
-        captureButton?.backgroundColor = .systemBlue
-        captureButton?.layer.cornerRadius = 30
+        captureButton?.setTitle("", for: .normal)
+        captureButton?.backgroundColor = .clear
+        
+        // Create white circle for capture button
+        let captureCircle = UIView()
+        captureCircle.backgroundColor = .white
+        captureCircle.layer.cornerRadius = 30
+        captureCircle.isUserInteractionEnabled = false  // Make circle non-interactive
+        captureCircle.translatesAutoresizingMaskIntoConstraints = false
+        captureButton?.addSubview(captureCircle)
+        
+        // Add subtle border to capture button
+        captureButton?.layer.borderWidth = 4
+        captureButton?.layer.borderColor = UIColor.white.cgColor
+        captureButton?.layer.cornerRadius = 34
+        
+        // Add shadow to capture button
+        captureButton?.layer.shadowColor = UIColor.black.cgColor
+        captureButton?.layer.shadowOffset = CGSize(width: 0, height: 4)
+        captureButton?.layer.shadowOpacity = 0.3
+        captureButton?.layer.shadowRadius = 8
+        
         captureButton?.addTarget(self, action: #selector(captureButtonTapped), for: .touchUpInside)
         view.addSubview(captureButton!)
         
         // Cancel button
         cancelButton = UIButton(type: .system)
-        cancelButton?.setTitle("Cancel", for: .normal)
+        cancelButton?.setTitle("✕", for: .normal)
         cancelButton?.setTitleColor(.white, for: .normal)
-        cancelButton?.backgroundColor = .systemRed
+        cancelButton?.titleLabel?.font = UIFont.systemFont(ofSize: 24, weight: .medium)
+        cancelButton?.backgroundColor = UIColor.black.withAlphaComponent(0.6)
         cancelButton?.layer.cornerRadius = 25
+        
+        // Add border to cancel button
+        cancelButton?.layer.borderWidth = 2
+        cancelButton?.layer.borderColor = UIColor.white.withAlphaComponent(0.8).cgColor
+        
+        // Add shadow to cancel button
+        cancelButton?.layer.shadowColor = UIColor.black.cgColor
+        cancelButton?.layer.shadowOffset = CGSize(width: 0, height: 2)
+        cancelButton?.layer.shadowOpacity = 0.25
+        cancelButton?.layer.shadowRadius = 4
+        
         cancelButton?.addTarget(self, action: #selector(cancelButtonTapped), for: .touchUpInside)
         view.addSubview(cancelButton!)
         
@@ -162,6 +192,12 @@ class LiveTextDetectionCameraViewController: UIViewController {
         cancelButton?.translatesAutoresizingMaskIntoConstraints = false
         
         NSLayoutConstraint.activate([
+            // White circle constraints for capture button
+            captureCircle.centerXAnchor.constraint(equalTo: captureButton!.centerXAnchor),
+            captureCircle.centerYAnchor.constraint(equalTo: captureButton!.centerYAnchor),
+            captureCircle.widthAnchor.constraint(equalToConstant: 60),
+            captureCircle.heightAnchor.constraint(equalToConstant: 60),
+            
             statusLabel!.topAnchor.constraint(equalTo: statusContainer!.topAnchor, constant: 8),
             statusLabel!.bottomAnchor.constraint(equalTo: statusContainer!.bottomAnchor, constant: -8),
             statusLabel!.leadingAnchor.constraint(equalTo: statusContainer!.leadingAnchor, constant: 16),
@@ -173,8 +209,8 @@ class LiveTextDetectionCameraViewController: UIViewController {
             
             captureButton!.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             captureButton!.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
-            captureButton!.widthAnchor.constraint(equalToConstant: 60),
-            captureButton!.heightAnchor.constraint(equalToConstant: 60),
+            captureButton!.widthAnchor.constraint(equalToConstant: 68),
+            captureButton!.heightAnchor.constraint(equalToConstant: 68),
             
             cancelButton!.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             cancelButton!.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),

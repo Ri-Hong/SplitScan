@@ -13,9 +13,9 @@ struct SummaryView: View {
             VStack(spacing: 20) {
                 // Header
                 VStack(spacing: 8) {
-                    Text("Split Summary")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
+                    // Text("Split Summary")
+                    //     .font(.largeTitle)
+                    //     .fontWeight(.bold)
                     
                     Text("Here's what each person owes:")
                         .font(.subheadline)
@@ -81,7 +81,7 @@ struct SummaryView: View {
                                 }
                                 
                                 if assignedItems.isEmpty {
-                                    Text("No items assigned")
+                                    Text("No individual items assigned")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                         .padding(.vertical, 8)
@@ -186,7 +186,7 @@ struct SummaryView: View {
                 
                 Spacer()
             }
-            .navigationTitle("Summary")
+            .navigationTitle("Split Summary")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
