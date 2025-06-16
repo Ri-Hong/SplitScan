@@ -10,7 +10,6 @@ struct SplittingView: View {
     @StateObject private var splitViewModel = SplitViewModel()
     @State private var showDebugView = false
     @State private var selectedItem: ReceiptItem?
-    @State private var showItemAssignment = false
     @State private var showSummary = false
     
     var body: some View {
@@ -135,8 +134,6 @@ struct SplittingView: View {
                         onTap: {
                             print("Setting selectedItem to: \(item.name)")
                             selectedItem = item
-                            print("Setting showItemAssignment to true")
-                            showItemAssignment = true
                         }
                     )
                 }
@@ -228,21 +225,9 @@ struct SplittingView: View {
         .sheet(item: $splitViewModel.editingTag) { tag in
             EditTagView(splitViewModel: splitViewModel)
         }
-        .sheet(isPresented: $showItemAssignment, content: {
-            if let item = selectedItem {
-                ItemAssignmentView(item: item, splitViewModel: splitViewModel)
-            } else {
-                // Fallback view if no item is selected
-                VStack {
-                    Text("No item selected")
-                        .font(.headline)
-                    Button("Dismiss") {
-                        showItemAssignment = false
-                    }
-                    .padding()
-                }
-            }
-        })
+        .sheet(item: $selectedItem) { item in
+            ItemAssignmentView(item: item, splitViewModel: splitViewModel)
+        }
         .sheet(isPresented: $showSummary) {
             SummaryView(items: viewModel.receiptItems, splitViewModel: splitViewModel)
         }
