@@ -119,21 +119,55 @@ class LiveTextDetectionCameraViewController: UIViewController {
         textDetectionOverlay?.backgroundColor = .clear
         view.addSubview(textDetectionOverlay!)
         
-        // Capture button
+        // Capture button - Modern circular button with gradient
         captureButton = UIButton(type: .system)
-        captureButton?.setTitle("Capture", for: .normal)
-        captureButton?.setTitleColor(.white, for: .normal)
-        captureButton?.backgroundColor = .systemBlue
-        captureButton?.layer.cornerRadius = 30
+        captureButton?.setTitle("", for: .normal)
+        captureButton?.backgroundColor = .clear
+        
+        // Create gradient layer for capture button
+        let captureGradient = CAGradientLayer()
+        captureGradient.colors = [
+            UIColor.systemBlue.cgColor,
+            UIColor.systemBlue.withAlphaComponent(0.8).cgColor
+        ]
+        captureGradient.startPoint = CGPoint(x: 0, y: 0)
+        captureGradient.endPoint = CGPoint(x: 1, y: 1)
+        captureGradient.cornerRadius = 35
+        captureButton?.layer.insertSublayer(captureGradient, at: 0)
+        
+        // Add inner white circle for camera icon effect
+        let innerCircle = UIView()
+        innerCircle.backgroundColor = .white
+        innerCircle.layer.cornerRadius = 25
+        innerCircle.translatesAutoresizingMaskIntoConstraints = false
+        captureButton?.addSubview(innerCircle)
+        
+        // Add shadow to capture button
+        captureButton?.layer.shadowColor = UIColor.black.cgColor
+        captureButton?.layer.shadowOffset = CGSize(width: 0, height: 4)
+        captureButton?.layer.shadowOpacity = 0.3
+        captureButton?.layer.shadowRadius = 8
+        captureButton?.layer.cornerRadius = 35
+        
         captureButton?.addTarget(self, action: #selector(captureButtonTapped), for: .touchUpInside)
         view.addSubview(captureButton!)
         
-        // Cancel button
+        // Cancel button - Modern pill-shaped button
         cancelButton = UIButton(type: .system)
-        cancelButton?.setTitle("Cancel", for: .normal)
+        cancelButton?.setTitle("✕", for: .normal)
         cancelButton?.setTitleColor(.white, for: .normal)
-        cancelButton?.backgroundColor = .systemRed
+        cancelButton?.titleLabel?.font = UIFont.systemFont(ofSize: 20, weight: .medium)
+        cancelButton?.backgroundColor = UIColor.systemRed.withAlphaComponent(0.9)
         cancelButton?.layer.cornerRadius = 25
+        cancelButton?.layer.borderWidth = 2
+        cancelButton?.layer.borderColor = UIColor.white.withAlphaComponent(0.3).cgColor
+        
+        // Add shadow to cancel button
+        cancelButton?.layer.shadowColor = UIColor.black.cgColor
+        cancelButton?.layer.shadowOffset = CGSize(width: 0, height: 2)
+        cancelButton?.layer.shadowOpacity = 0.25
+        cancelButton?.layer.shadowRadius = 4
+        
         cancelButton?.addTarget(self, action: #selector(cancelButtonTapped), for: .touchUpInside)
         view.addSubview(cancelButton!)
         
@@ -162,6 +196,12 @@ class LiveTextDetectionCameraViewController: UIViewController {
         cancelButton?.translatesAutoresizingMaskIntoConstraints = false
         
         NSLayoutConstraint.activate([
+            // Inner circle constraints for capture button
+            innerCircle.centerXAnchor.constraint(equalTo: captureButton!.centerXAnchor),
+            innerCircle.centerYAnchor.constraint(equalTo: captureButton!.centerYAnchor),
+            innerCircle.widthAnchor.constraint(equalToConstant: 50),
+            innerCircle.heightAnchor.constraint(equalToConstant: 50),
+            
             statusLabel!.topAnchor.constraint(equalTo: statusContainer!.topAnchor, constant: 8),
             statusLabel!.bottomAnchor.constraint(equalTo: statusContainer!.bottomAnchor, constant: -8),
             statusLabel!.leadingAnchor.constraint(equalTo: statusContainer!.leadingAnchor, constant: 16),
@@ -173,14 +213,19 @@ class LiveTextDetectionCameraViewController: UIViewController {
             
             captureButton!.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             captureButton!.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
-            captureButton!.widthAnchor.constraint(equalToConstant: 60),
-            captureButton!.heightAnchor.constraint(equalToConstant: 60),
+            captureButton!.widthAnchor.constraint(equalToConstant: 70),
+            captureButton!.heightAnchor.constraint(equalToConstant: 70),
             
             cancelButton!.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             cancelButton!.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
             cancelButton!.widthAnchor.constraint(equalToConstant: 50),
             cancelButton!.heightAnchor.constraint(equalToConstant: 50)
         ])
+        
+        // Update gradient frame after layout
+        DispatchQueue.main.async {
+            captureGradient.frame = self.captureButton!.bounds
+        }
     }
     
     private func setupTextDetection() {
@@ -219,6 +264,15 @@ class LiveTextDetectionCameraViewController: UIViewController {
     }
     
     @objc private func captureButtonTapped() {
+        // Add visual feedback
+        UIView.animate(withDuration: 0.1, animations: {
+            self.captureButton?.transform = CGAffineTransform(scaleX: 0.95, y: 0.95)
+        }) { _ in
+            UIView.animate(withDuration: 0.1) {
+                self.captureButton?.transform = CGAffineTransform.identity
+            }
+        }
+        
         guard let photoOutput = self.photoOutput else { return }
         
         let settings = AVCapturePhotoSettings()
@@ -226,6 +280,15 @@ class LiveTextDetectionCameraViewController: UIViewController {
     }
     
     @objc private func cancelButtonTapped() {
+        // Add visual feedback
+        UIView.animate(withDuration: 0.1, animations: {
+            self.cancelButton?.transform = CGAffineTransform(scaleX: 0.9, y: 0.9)
+        }) { _ in
+            UIView.animate(withDuration: 0.1) {
+                self.cancelButton?.transform = CGAffineTransform.identity
+            }
+        }
+        
         delegate?.didCancel()
     }
     
