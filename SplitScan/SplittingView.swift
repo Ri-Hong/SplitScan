@@ -50,7 +50,7 @@ struct SplittingView: View {
             }
             .padding(.horizontal)
             .padding(.top, 0)
-            .padding(.bottom, 8)
+            .padding(.bottom, 12)
             .background(Color.gray.opacity(0.1))
             
             // Debug View (if enabled)
@@ -207,7 +207,6 @@ struct SplittingView: View {
                     .cornerRadius(10)
                 }
                 .padding()
-                .background(Color.white)
             }
         }
         .navigationTitle("Split Receipt")
