@@ -8,7 +8,7 @@ private let TAX_RATE: Decimal = 1.13
 struct ContentView: View {
     @StateObject private var viewModel = ReceiptViewModel()
     @State private var isShowingImagePicker = false
-    @State private var isShowingCamera = false
+    @State private var isShowingLiveCamera = false
     @State private var sourceType: UIImagePickerController.SourceType = .photoLibrary
     
     var body: some View {
@@ -33,8 +33,7 @@ struct ContentView: View {
                 // Camera/Photo Library Buttons
                 HStack(spacing: 20) {
                     Button(action: {
-                        sourceType = .camera
-                        isShowingCamera = true
+                        isShowingLiveCamera = true
                     }) {
                         Label("Take Photo", systemImage: "camera")
                             .padding()
@@ -90,8 +89,8 @@ struct ContentView: View {
             .sheet(isPresented: $isShowingImagePicker) {
                 ImagePicker(image: $viewModel.selectedImage, sourceType: sourceType)
             }
-            .sheet(isPresented: $isShowingCamera) {
-                ImagePicker(image: $viewModel.selectedImage, sourceType: .camera)
+            .fullScreenCover(isPresented: $isShowingLiveCamera) {
+                LiveTextDetectionCamera(capturedImage: $viewModel.selectedImage)
             }
             .background(
                 NavigationLink(
