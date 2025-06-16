@@ -15,196 +15,22 @@ struct SplittingView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Tags Section
-            VStack(spacing: 12) {
-                HStack {
-                    Text("Split Between")
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    
-                    Spacer()
-                }
-                
-                // Tags Display
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(splitViewModel.tags) { tag in
-                            TagView(
-                                tag: tag, 
-                                total: splitViewModel.getTotalForTag(tag, items: viewModel.receiptItems),
-                                defaultSplit: splitViewModel.getDefaultSplitPerTag(items: viewModel.receiptItems)
-                            )
-                            .onTapGesture {
-                                splitViewModel.startEditingTag(tag)
-                            }
-                        }
-                        
-                        // Add Tag Button (plus icon)
-                        if splitViewModel.canAddMoreTags {
-                            AddTagButtonView {
-                                splitViewModel.showingAddTagSheet = true
-                            }
-                        }
-                    }
-                }
-            }
-            .padding(.horizontal)
-            .padding(.top, 0)
-            .padding(.bottom, 12)
-            .background(Color.gray.opacity(0.1))
+            TagsSectionView(splitViewModel: splitViewModel, viewModel: viewModel)
             
             // Debug View (if enabled)
             if showDebugView {
-                ScrollView {
-                    VStack(spacing: 20) {
-                        if let image = viewModel.allBoxesImage {
-                            VStack {
-                                Text("All Recognized Text")
-                                    .font(.headline)
-                                    .foregroundColor(.gray)
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .interpolation(.none)
-                                    .aspectRatio(contentMode: .fit)
-                                    .frame(maxWidth: .infinity)
-                                    .background(Color.gray.opacity(0.1))
-                                    .border(Color.gray, width: 1)
-                            }
-                            .padding(.horizontal)
-                        }
-                        
-                        if let image = viewModel.priceBoxesImage {
-                            VStack {
-                                Text("Price Boxes")
-                                    .font(.headline)
-                                    .foregroundColor(.gray)
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .interpolation(.none)
-                                    .aspectRatio(contentMode: .fit)
-                                    .frame(maxWidth: .infinity)
-                                    .background(Color.gray.opacity(0.1))
-                                    .border(Color.gray, width: 1)
-                            }
-                            .padding(.horizontal)
-                        }
-                        
-                        if let image = viewModel.priceColumnImage {
-                            VStack {
-                                Text("Price Column")
-                                    .font(.headline)
-                                    .foregroundColor(.gray)
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .interpolation(.none)
-                                    .aspectRatio(contentMode: .fit)
-                                    .frame(maxWidth: .infinity)
-                                    .background(Color.gray.opacity(0.1))
-                                    .border(Color.gray, width: 1)
-                            }
-                            .padding(.horizontal)
-                        }
-                        
-                        if let image = viewModel.priceAndItemBoxesImage {
-                            VStack {
-                                Text("Price and Item Boxes")
-                                    .font(.headline)
-                                    .foregroundColor(.gray)
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .interpolation(.none)
-                                    .aspectRatio(contentMode: .fit)
-                                    .frame(maxWidth: .infinity)
-                                    .background(Color.gray.opacity(0.1))
-                                    .border(Color.gray, width: 1)
-                            }
-                            .padding(.horizontal)
-                        }
-                    }
-                    .padding(.vertical)
-                }
-                .background(Color.gray.opacity(0.1))
+                DebugSectionView(viewModel: viewModel)
             }
             
             // Items List
-            List {
-                ForEach(viewModel.receiptItems, id: \.id) { item in
-                    ItemRowView(
-                        item: item,
-                        splitViewModel: splitViewModel,
-                        onTap: {
-                            print("Setting selectedItem to: \(item.name)")
-                            selectedItem = item
-                        }
-                    )
-                }
-                
-                if !viewModel.receiptItems.isEmpty {
-                    // Calculate totals
-                    let total = viewModel.receiptItems.reduce(Decimal(0)) { $0 + ($1.isTaxed ? $1.price * TAX_RATE : $1.price) }
-                    let taxedItems = viewModel.receiptItems.filter { $0.isTaxed }
-                    let taxedTotal = taxedItems.reduce(Decimal(0)) { $0 + ($1.price * TAX_RATE) }
-                    let untaxedTotal = viewModel.receiptItems.filter { !$0.isTaxed }.reduce(Decimal(0)) { $0 + $1.price }
-                    
-                    VStack(spacing: 8) {
-                        HStack {
-                            Text("Total:")
-                                .font(.headline)
-                            Spacer()
-                            Text(String(format: "$%.2f", NSDecimalNumber(decimal: total).doubleValue))
-                                .font(.headline)
-                                .bold()
-                        }
-                        
-                        if !taxedItems.isEmpty {
-                            HStack {
-                                Text("Taxed Items (\(taxedItems.count)):")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                Spacer()
-                                Text(String(format: "$%.2f", NSDecimalNumber(decimal: taxedTotal).doubleValue))
-                                    .font(.subheadline)
-                                    .foregroundColor(.red)
-                            }
-                        }
-                        
-                        if !viewModel.receiptItems.filter({ !$0.isTaxed }).isEmpty {
-                            HStack {
-                                Text("Untaxed Items (\(viewModel.receiptItems.filter({ !$0.isTaxed }).count)):")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                Spacer()
-                                Text(String(format: "$%.2f", NSDecimalNumber(decimal: untaxedTotal).doubleValue))
-                                    .font(.subheadline)
-                                    .foregroundColor(.green)
-                            }
-                        }
-                    }
-                    .padding()
-                    .background(Color.gray.opacity(0.1))
-                }
-            }
+            ItemsListView(
+                viewModel: viewModel,
+                splitViewModel: splitViewModel,
+                selectedItem: $selectedItem
+            )
             
             // Done Button
-            VStack(spacing: 0) {
-                Divider()
-                
-                Button(action: {
-                    showSummary = true
-                }) {
-                    HStack {
-                        Spacer()
-                        Text("Done")
-                            .font(.headline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.white)
-                        Spacer()
-                    }
-                    .padding()
-                    .background(Color.blue)
-                    .cornerRadius(10)
-                }
-                .padding()
-            }
+            DoneButtonView(showSummary: $showSummary)
         }
         .navigationTitle("Split Receipt")
         .navigationBarTitleDisplayMode(.inline)
@@ -233,35 +59,277 @@ struct SplittingView: View {
         }
     }
 }
+
+// MARK: - Sub-Views
+struct TagsSectionView: View {
+    @ObservedObject var splitViewModel: SplitViewModel
+    @ObservedObject var viewModel: ReceiptViewModel
+    
+    var body: some View {
+        GeometryReader { geometry in
+            TagsContent(
+                splitViewModel: splitViewModel,
+                viewModel: viewModel,
+                isLargeDevice: geometry.size.width > 768
+            )
+        }
+        .frame(height: UIDevice.current.userInterfaceIdiom == .pad ? 120 : 80)
+    }
+}
+
+struct TagsContent: View {
+    @ObservedObject var splitViewModel: SplitViewModel
+    @ObservedObject var viewModel: ReceiptViewModel
+    let isLargeDevice: Bool
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Text("Split Between")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                Spacer()
+            }
+            
+            // Tags Display
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: isLargeDevice ? 16 : 12) {
+                    ForEach(splitViewModel.tags) { tag in
+                        TagView(
+                            tag: tag, 
+                            total: splitViewModel.getTotalForTag(tag, items: viewModel.receiptItems),
+                            defaultSplit: splitViewModel.getDefaultSplitPerTag(items: viewModel.receiptItems),
+                            isLargeDevice: isLargeDevice
+                        )
+                        .onTapGesture {
+                            splitViewModel.startEditingTag(tag)
+                        }
+                    }
+                    
+                    // Add Tag Button (plus icon)
+                    if splitViewModel.canAddMoreTags {
+                        AddTagButtonView(onTap: {
+                            splitViewModel.showingAddTagSheet = true
+                        }, isLargeDevice: isLargeDevice)
+                    }
+                }
+                .padding(.horizontal, isLargeDevice ? 20 : 0)
+            }
+        }
+        .padding(.horizontal, isLargeDevice ? 24 : 16)
+        .padding(.top, 0)
+        .padding(.bottom, isLargeDevice ? 16 : 12)
+        .background(Color.gray.opacity(0.1))
+    }
+}
+
+struct DebugSectionView: View {
+    @ObservedObject var viewModel: ReceiptViewModel
+    
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                if let image = viewModel.allBoxesImage {
+                    VStack {
+                        Text("All Recognized Text")
+                            .font(.headline)
+                            .foregroundColor(.gray)
+                        Image(uiImage: image)
+                            .resizable()
+                            .interpolation(.none)
+                            .aspectRatio(contentMode: .fit)
+                            .frame(maxWidth: .infinity)
+                            .background(Color.gray.opacity(0.1))
+                            .border(Color.gray, width: 1)
+                    }
+                    .padding(.horizontal)
+                }
+                
+                if let image = viewModel.priceBoxesImage {
+                    VStack {
+                        Text("Price Boxes")
+                            .font(.headline)
+                            .foregroundColor(.gray)
+                        Image(uiImage: image)
+                            .resizable()
+                            .interpolation(.none)
+                            .aspectRatio(contentMode: .fit)
+                            .frame(maxWidth: .infinity)
+                            .background(Color.gray.opacity(0.1))
+                            .border(Color.gray, width: 1)
+                    }
+                    .padding(.horizontal)
+                }
+                
+                if let image = viewModel.priceColumnImage {
+                    VStack {
+                        Text("Price Column")
+                            .font(.headline)
+                            .foregroundColor(.gray)
+                        Image(uiImage: image)
+                            .resizable()
+                            .interpolation(.none)
+                            .aspectRatio(contentMode: .fit)
+                            .frame(maxWidth: .infinity)
+                            .background(Color.gray.opacity(0.1))
+                            .border(Color.gray, width: 1)
+                    }
+                    .padding(.horizontal)
+                }
+                
+                if let image = viewModel.priceAndItemBoxesImage {
+                    VStack {
+                        Text("Price and Item Boxes")
+                            .font(.headline)
+                            .foregroundColor(.gray)
+                        Image(uiImage: image)
+                            .resizable()
+                            .interpolation(.none)
+                            .aspectRatio(contentMode: .fit)
+                            .frame(maxWidth: .infinity)
+                            .background(Color.gray.opacity(0.1))
+                            .border(Color.gray, width: 1)
+                    }
+                    .padding(.horizontal)
+                }
+            }
+            .padding(.vertical)
+        }
+        .background(Color.gray.opacity(0.1))
+    }
+}
+
+struct ItemsListView: View {
+    @ObservedObject var viewModel: ReceiptViewModel
+    @ObservedObject var splitViewModel: SplitViewModel
+    @Binding var selectedItem: ReceiptItem?
+    
+    var body: some View {
+        List {
+            ForEach(viewModel.receiptItems, id: \.id) { item in
+                ItemRowView(
+                    item: item,
+                    splitViewModel: splitViewModel,
+                    onTap: {
+                        print("Setting selectedItem to: \(item.name)")
+                        selectedItem = item
+                    }
+                )
+            }
+            
+            if !viewModel.receiptItems.isEmpty {
+                TotalsView(items: viewModel.receiptItems)
+            }
+        }
+    }
+}
+
+struct TotalsView: View {
+    let items: [ReceiptItem]
+    
+    var body: some View {
+        let total = items.reduce(Decimal(0)) { $0 + ($1.isTaxed ? $1.price * TAX_RATE : $1.price) }
+        let taxedItems = items.filter { $0.isTaxed }
+        let taxedTotal = taxedItems.reduce(Decimal(0)) { $0 + ($1.price * TAX_RATE) }
+        let untaxedTotal = items.filter { !$0.isTaxed }.reduce(Decimal(0)) { $0 + $1.price }
+        
+        VStack(spacing: 8) {
+            HStack {
+                Text("Total:")
+                    .font(.headline)
+                Spacer()
+                Text(String(format: "$%.2f", NSDecimalNumber(decimal: total).doubleValue))
+                    .font(.headline)
+                    .bold()
+            }
+            
+            if !taxedItems.isEmpty {
+                HStack {
+                    Text("Taxed Items (\(taxedItems.count)):")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text(String(format: "$%.2f", NSDecimalNumber(decimal: taxedTotal).doubleValue))
+                        .font(.subheadline)
+                        .foregroundColor(.red)
+                }
+            }
+            
+            if !items.filter({ !$0.isTaxed }).isEmpty {
+                HStack {
+                    Text("Untaxed Items (\(items.filter({ !$0.isTaxed }).count)):")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text(String(format: "$%.2f", NSDecimalNumber(decimal: untaxedTotal).doubleValue))
+                        .font(.subheadline)
+                        .foregroundColor(.green)
+                }
+            }
+        }
+        .padding()
+        .background(Color.gray.opacity(0.1))
+    }
+}
+
+struct DoneButtonView: View {
+    @Binding var showSummary: Bool
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            Divider()
+            
+            Button(action: {
+                showSummary = true
+            }) {
+                HStack {
+                    Spacer()
+                    Text("Done")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                    Spacer()
+                }
+                .padding()
+                .background(Color.blue)
+                .cornerRadius(10)
+            }
+            .padding()
+        }
+    }
+}
+
 private let TAG_HEIGHT: CGFloat = 50
 struct TagView: View {
     let tag: SplitTag
     let total: Decimal
     let defaultSplit: Decimal
+    let isLargeDevice: Bool
 
     var body: some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 6) {
+        VStack(spacing: isLargeDevice ? 6 : 4) {
+            HStack(spacing: isLargeDevice ? 8 : 6) {
                 Circle()
                     .fill(tag.color)
-                    .frame(width: 12, height: 12)
+                    .frame(width: isLargeDevice ? 16 : 12, height: isLargeDevice ? 16 : 12)
 
                 Text(tag.name)
-                    .font(.caption)
+                    .font(isLargeDevice ? .body : .caption)
                     .fontWeight(.medium)
             }
 
             Text(String(format: "$%.2f", NSDecimalNumber(decimal: total).doubleValue))
-                .font(.caption2)
+                .font(isLargeDevice ? .caption : .caption2)
                 .foregroundColor(.secondary)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .frame(height: TAG_HEIGHT)
+        .padding(.horizontal, isLargeDevice ? 16 : 12)
+        .padding(.vertical, isLargeDevice ? 12 : 8)
+        .frame(height: isLargeDevice ? 70 : TAG_HEIGHT)
         .background(tag.color.opacity(0.1))
-        .cornerRadius(8)
+        .cornerRadius(isLargeDevice ? 12 : 8)
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: isLargeDevice ? 12 : 8)
                 .stroke(tag.color.opacity(0.3), lineWidth: 1)
         )
     }
@@ -269,23 +337,24 @@ struct TagView: View {
 
 struct AddTagButtonView: View {
     let onTap: () -> Void
+    let isLargeDevice: Bool
 
     var body: some View {
         Button(action: onTap) {
-            VStack(spacing: 4) {
+            VStack(spacing: isLargeDevice ? 6 : 4) {
                 Spacer()
                 Image(systemName: "plus.circle.fill")
-                    .font(.title3)
+                    .font(isLargeDevice ? .title : .title3)
                     .foregroundColor(.blue)
                 Spacer()
             }
-            .frame(height: TAG_HEIGHT)
-            .frame(minWidth: 24) // Optional width control
-            .padding(.horizontal, 12)
+            .frame(height: isLargeDevice ? 70 : TAG_HEIGHT)
+            .frame(minWidth: isLargeDevice ? 32 : 24)
+            .padding(.horizontal, isLargeDevice ? 16 : 12)
             .background(Color.blue.opacity(0.1))
-            .cornerRadius(8)
+            .cornerRadius(isLargeDevice ? 12 : 8)
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: isLargeDevice ? 12 : 8)
                     .stroke(Color.blue.opacity(0.3), lineWidth: 1)
             )
         }
