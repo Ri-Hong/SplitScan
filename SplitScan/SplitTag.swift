@@ -23,7 +23,7 @@ extension SplitTag {
     
     static func createDefaultTags() -> [SplitTag] {
         return [
-            SplitTag(name: "Person 1", color: .blue),
+            SplitTag(name: "Person 1", color: .green),
             SplitTag(name: "Person 2", color: .red)
         ]
     }
