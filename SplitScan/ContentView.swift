@@ -286,7 +286,7 @@ struct ReceiptResultView: View {
             
             // Original receipt items list
             List {
-                ForEach(viewModel.receiptItems, id: \.name) { item in
+                ForEach(viewModel.filteredReceiptItems, id: \.name) { item in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Text(item.name)
@@ -341,14 +341,14 @@ struct ReceiptResultView: View {
                     .padding(.vertical, 4)
                 }
                 
-                if !viewModel.receiptItems.isEmpty {
+                if !viewModel.filteredReceiptItems.isEmpty {
                     Divider()
                     
                     // Calculate totals
-                    let total = viewModel.receiptItems.reduce(Decimal(0)) { $0 + ($1.isTaxed ? $1.price * TAX_RATE : $1.price) }
-                    let taxedItems = viewModel.receiptItems.filter { $0.isTaxed }
+                    let total = viewModel.filteredReceiptItems.reduce(Decimal(0)) { $0 + ($1.isTaxed ? $1.price * TAX_RATE : $1.price) }
+                    let taxedItems = viewModel.filteredReceiptItems.filter { $0.isTaxed }
                     let taxedTotal = taxedItems.reduce(Decimal(0)) { $0 + ($1.price * TAX_RATE) }
-                    let untaxedTotal = viewModel.receiptItems.filter { !$0.isTaxed }.reduce(Decimal(0)) { $0 + $1.price }
+                    let untaxedTotal = viewModel.filteredReceiptItems.filter { !$0.isTaxed }.reduce(Decimal(0)) { $0 + $1.price }
                     
                     VStack(spacing: 8) {
                         HStack {
@@ -372,9 +372,9 @@ struct ReceiptResultView: View {
                             }
                         }
                         
-                        if !viewModel.receiptItems.filter({ !$0.isTaxed }).isEmpty {
+                        if !viewModel.filteredReceiptItems.filter({ !$0.isTaxed }).isEmpty {
                             HStack {
-                                Text("Untaxed Items (\(viewModel.receiptItems.filter({ !$0.isTaxed }).count)):")
+                                Text("Untaxed Items (\(viewModel.filteredReceiptItems.filter({ !$0.isTaxed }).count)):")
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                                 Spacer()

@@ -107,9 +107,9 @@ class ReceiptProcessor {
                     // Search line by line above until we find a suitable item name
                     let lineSpacing: CGFloat = 0.02 // Approximate spacing between lines
                     let maxLinesToSearch: Int = 5 // Prevent infinite search
-                    var bestItem: RecognizedText? = nil
-                    var bestScore: Double = 0.0
+                    var allPotentialItems: [(item: RecognizedText, lineOffset: Int)] = []
                     
+                    // First, collect all potential items from all lines
                     for lineOffset in 1...maxLinesToSearch {
                         let targetVerticalPosition = verticalPosition - (CGFloat(lineOffset) * lineSpacing)
                         let lineTolerance: CGFloat = 0.01 // Tolerance for finding text on this specific line
@@ -129,30 +129,27 @@ class ReceiptProcessor {
                             let box = potentialItem.boundingBox.boundingBox
                             print("  - \"\(potentialItem.text)\"")
                             print("    Position: x=\(box.origin.x), y=\(box.origin.y)")
-                        }
-                        
-                        // Score each text on this line
-                        for potentialItem in textsOnLine {
-                            let score = calculateItemScore(potentialItem, priceText: text, lineOffset: lineOffset)
-                            print("  Score for \"\(potentialItem.text)\": \(score)")
-                            
-                            if score > bestScore {
-                                bestScore = score
-                                bestItem = potentialItem
-                            }
-                        }
-                        
-                        // If we found a good match (score above threshold), stop searching
-                        if bestScore > 0.5 {
-                            print("Found good match with score \(bestScore), stopping search")
-                            break
+                            allPotentialItems.append((item: potentialItem, lineOffset: lineOffset))
                         }
                     }
                     
-                    // Use the best item found, if any
+                    // Now score all collected items and find the best one
+                    var bestItem: RecognizedText? = nil
+                    var bestScore: Double = 0.0
+                    
+                    print("Scoring all \(allPotentialItems.count) potential items:")
+                    for (potentialItem, lineOffset) in allPotentialItems {
+                        let score = calculateItemScore(potentialItem, priceText: text, lineOffset: lineOffset)
+                        print("  Score for \"\(potentialItem.text)\" (line \(lineOffset)): \(score)")
+                        
+                        if score > bestScore {
+                            bestScore = score
+                            bestItem = potentialItem
+                        }
+                    }
+                    
                     if let bestItem = bestItem {
-                        let itemName = bestItem.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                        print("Found \(isWeightBasedPrice ? "weight" : "count")-based item: \"\(itemName)\" with score \(bestScore)")
+                        print("Selected best item: \"\(bestItem.text)\" with score \(bestScore)")
                         
                         // Extract weight/quantity and price per unit if available
                         var weight: Decimal?
@@ -165,12 +162,12 @@ class ReceiptProcessor {
                             
                             if isWeightBasedPrice {
                                 // Extract weight
-                                if let weightMatch = text.range(of: #"(\d+\.?\d*)\s*kg"#, options: .regularExpression) {
+                                if let weightMatch = text.range(of: #"(\d+\.?\d*)\s*kg\s*\w*"#, options: .regularExpression) {
                                     let weightStr = String(text[weightMatch])
                                     weight = Decimal(string: weightStr.replacingOccurrences(of: "kg", with: "").trimmingCharacters(in: .whitespaces))
                                 }
                                 // Extract price per kg
-                                if let priceMatch = text.range(of: #"@\s*\$(\d+\.?\d*)/kg"#, options: .regularExpression) {
+                                if let priceMatch = text.range(of: #"@\s*\w*\s*\$(\d+\.?\d*)\s*\w*/kg"#, options: .regularExpression) {
                                     let priceStr = String(text[priceMatch])
                                     print("Found price per kg string: \"\(priceStr)\"")
                                     if let numberRange = priceStr.range(of: #"\d+\.?\d*"#, options: .regularExpression) {
@@ -202,10 +199,10 @@ class ReceiptProcessor {
                         }
                         
                         // Check if item is taxed
-                        let isTaxed = isItemTaxed(sameLineTexts: sameLineTexts, itemName: itemName)
+                        let isTaxed = isItemTaxed(sameLineTexts: sameLineTexts, itemName: bestItem.text.trimmingCharacters(in: .whitespacesAndNewlines))
                         
                         items.append(ReceiptItem(
-                            name: cleanItemName(itemName),
+                            name: cleanItemName(bestItem.text.trimmingCharacters(in: .whitespacesAndNewlines)),
                             price: price,
                             quantity: quantity,
                             boundingBox: bestItem.boundingBox.boundingBox,
@@ -394,6 +391,11 @@ class ReceiptProcessor {
             let itemBox = item.boundingBox.boundingBox
             let priceBox = priceText.boundingBox.boundingBox
             
+            // 0. Check if this is non-item text (tax codes, etc.) - heavy penalty
+            if isNonItemText(item.text) {
+                return (item: item, score: 0.1) // Very low score for tax codes and other non-item text
+            }
+            
             // 1. Horizontal distance score (prefer items to the left of price)
             let horizontalDistance = priceBox.origin.y - itemBox.origin.y
             let horizontalScore = horizontalDistance > 0 ? 1.0 : 0.0
@@ -425,10 +427,53 @@ class ReceiptProcessor {
         }.max(by: { $0.score < $1.score })?.item
     }
     
+    /// Check if text is likely a tax code or other non-item text
+    private func isNonItemText(_ text: String) -> Bool {
+        let lowercasedText = text.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Tax codes
+        if lowercasedText == "mrj" || lowercasedText == "hmrj" {
+            return true
+        }
+        
+        // Other common non-item text
+        let nonItemPatterns = [
+            "net",
+            "gst",
+            "pst",
+            "hst",
+            "tax",
+            "total",
+            "subtotal",
+            "change",
+            "cash",
+            "credit",
+            "debit",
+            "visa",
+            "mastercard",
+            "thank you",
+            "receipt",
+            "date:",
+            "time:",
+            "store",
+            "register"
+        ]
+        
+        return nonItemPatterns.contains { pattern in
+            lowercasedText.contains(pattern)
+        }
+    }
+    
     /// Calculate a score for how well a potential item matches the price
     private func calculateItemScore(_ item: RecognizedText, priceText: RecognizedText, lineOffset: Int) -> Double {
         let itemBox = item.boundingBox.boundingBox
         let priceBox = priceText.boundingBox.boundingBox
+        
+        // 0. Check if this is non-item text (tax codes, etc.) - heavy penalty
+        if isNonItemText(item.text) {
+            print("    Heavy penalty for non-item text: \"\(item.text)\"")
+            return 0.1 // Very low score for tax codes and other non-item text
+        }
         
         // 1. Horizontal distance score (prefer items to the left of price)
         let horizontalDistance = priceBox.origin.y - itemBox.origin.y
@@ -442,7 +487,6 @@ class ReceiptProcessor {
         
         // 4. Letter vs Number ratio score (prefer text with more letters)
         let letterCount = item.text.filter { $0.isLetter }.count
-        let numberCount = item.text.filter { $0.isNumber }.count
         let totalChars = item.text.count
         let letterRatio = totalChars > 0 ? Double(letterCount) / Double(totalChars) : 0.0
         let letterScore = letterRatio

@@ -9,11 +9,66 @@ class ReceiptViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var shouldNavigateToResult = false
     
+    // Blacklist for filtering out items
+    @Published var blacklistedWords: Set<String> = [
+        "total",
+        "subtotal", 
+        "tax",
+        "change",
+        "cash",
+        "credit",
+        "debit",
+        "visa",
+        "mastercard",
+        "thank you",
+        "receipt",
+        "date:",
+        "time:",
+        "store",
+        "register",
+        "amount",
+        "payment",
+        "method",
+        "card",
+        "transaction",
+        "balance",
+        "due",
+        "paid",
+        "refund",
+        "return",
+        "exchange",
+        "discount",
+        "coupon",
+        "sale",
+        "clearance",
+        "hst",
+        "loyalty",
+        "cad"
+    ]
+    
     // Debug visualization images
     @Published var allBoxesImage: UIImage?
     @Published var priceBoxesImage: UIImage?
     @Published var priceColumnImage: UIImage?
     @Published var priceAndItemBoxesImage: UIImage?
+    
+    // Computed property that filters out blacklisted items
+    var filteredReceiptItems: [ReceiptItem] {
+        let filtered = receiptItems.filter { item in
+            let itemName = item.name.lowercased()
+            let shouldFilter = blacklistedWords.contains { blacklistedWord in
+                itemName.contains(blacklistedWord.lowercased())
+            }
+            
+            if shouldFilter {
+                print("Filtering out item: '\(item.name)' because it contains blacklisted word")
+            }
+            
+            return !shouldFilter
+        }
+        
+        return filtered
+    }
     
     func processImage() {
         guard let image = selectedImage else { return }

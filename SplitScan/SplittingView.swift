@@ -55,7 +55,7 @@ struct SplittingView: View {
             ItemAssignmentView(item: item, splitViewModel: splitViewModel)
         }
         .sheet(isPresented: $showSummary) {
-            SummaryView(items: viewModel.receiptItems, splitViewModel: splitViewModel)
+            SummaryView(items: viewModel.filteredReceiptItems, splitViewModel: splitViewModel)
         }
     }
 }
@@ -207,7 +207,7 @@ struct ItemsListView: View {
     
     var body: some View {
         List {
-            ForEach(viewModel.receiptItems, id: \.id) { item in
+            ForEach(viewModel.filteredReceiptItems, id: \.id) { item in
                 ItemRowView(
                     item: item,
                     splitViewModel: splitViewModel,
@@ -218,8 +218,8 @@ struct ItemsListView: View {
                 )
             }
             
-            if !viewModel.receiptItems.isEmpty {
-                TotalsView(items: viewModel.receiptItems)
+            if !viewModel.filteredReceiptItems.isEmpty {
+                TotalsView(items: viewModel.filteredReceiptItems)
             }
         }
     }
