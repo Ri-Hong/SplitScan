@@ -9,6 +9,7 @@ class SplitViewModel: ObservableObject {
     @Published var selectedColor: Color = .blue
     @Published var editingTag: SplitTag?
     @Published var editingTagName = ""
+    @Published var editingTagColor: Color = .blue
     
     private let maxTags = 5
     
@@ -33,9 +34,10 @@ class SplitViewModel: ObservableObject {
     func startEditingTag(_ tag: SplitTag) {
         editingTag = tag
         editingTagName = tag.name
+        editingTagColor = tag.color
     }
     
-    func updateTagName() {
+    func updateTag() {
         guard let editingTag = editingTag,
               !editingTagName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return
@@ -43,16 +45,19 @@ class SplitViewModel: ObservableObject {
         
         if let index = tags.firstIndex(where: { $0.id == editingTag.id }) {
             tags[index].name = editingTagName.trimmingCharacters(in: .whitespacesAndNewlines)
+            tags[index].color = editingTagColor
         }
         
         // Reset editing state
         self.editingTag = nil
         editingTagName = ""
+        editingTagColor = .blue
     }
     
     func cancelEditingTag() {
         editingTag = nil
         editingTagName = ""
+        editingTagColor = .blue
     }
     
     func removeTag(_ tag: SplitTag) {

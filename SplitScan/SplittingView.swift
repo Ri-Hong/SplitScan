@@ -585,12 +585,36 @@ struct EditTagView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 20) {
-                Text("Edit Tag Name")
-                    .font(.headline)
+                // Tag Name Input
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Tag Name")
+                        .font(.headline)
+                    
+                    TextField("Enter tag name", text: $splitViewModel.editingTagName)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .autocapitalization(.words)
+                }
                 
-                TextField("Tag name", text: $splitViewModel.editingTagName)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .autocapitalization(.words)
+                // Color Selection
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Color")
+                        .font(.headline)
+                    
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 10) {
+                        ForEach(SplitTag.defaultColors, id: \.self) { color in
+                            Circle()
+                                .fill(color)
+                                .frame(width: 40, height: 40)
+                                .overlay(
+                                    Circle()
+                                        .stroke(splitViewModel.editingTagColor == color ? Color.black : Color.clear, lineWidth: 3)
+                                )
+                                .onTapGesture {
+                                    splitViewModel.editingTagColor = color
+                                }
+                        }
+                    }
+                }
                 
                 Spacer()
             }
@@ -606,7 +630,7 @@ struct EditTagView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
-                        splitViewModel.updateTagName()
+                        splitViewModel.updateTag()
                     }
                     .disabled(splitViewModel.editingTagName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
