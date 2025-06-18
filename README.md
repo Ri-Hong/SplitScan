@@ -5,13 +5,19 @@ SplitSnap processes receipt images to extract items and their prices using a com
 
 ## Algorithm Steps
 
-1. **Price Column Detection**
+1. **Image Normalization**
+   - **Real-time Line Spacing Analysis**: When the user points their camera at a receipt, the app periodically analyzes the line spacing between text elements
+   - **Distance Guidance**: Based on the detected line spacing, the app provides real-time feedback to the user, instructing them to move closer or farther away from the receipt
+   - **Consistent Processing**: This normalization ensures that line spacing remains consistent across all receipt images, improving the accuracy of subsequent text recognition and item extraction algorithms
+   - **Standardized Coordinates**: By maintaining consistent line spacing, the coordinate system (0-1 normalized) becomes more reliable for spatial analysis
+
+2. **Price Column Detection**
    - Identify all prices (decimal numbers with 2 decimal places)
    - Group prices by their x-coordinate (horizontal position)
    - Find the most common x-coordinate to determine the price column
    - Use a tolerance of 0.05 to group nearby prices
 
-2. **Item Processing**
+3. **Item Processing**
    For each price in the price column:
    
    a. **Same Line Analysis**
@@ -29,34 +35,49 @@ SplitSnap processes receipt images to extract items and their prices using a com
    - If regular item:
      * Use scoring system to find best matching item name
 
-3. **Tax Detection**
-   - Check if tax codes are present in the item name or on the same line as the price
-   - HMRJ = item is taxed
-   - MRJ = item is not taxed (but still a tax code)
-   - Set the `isTaxed` property based on HMRJ detection
-   - Both HMRJ and MRJ codes are removed from the final item name during cleaning
-
-4. **Item Name Selection Scoring System**
+   c. **Item Name Selection Scoring System**
    For each potential item name, calculate a score based on:
+   
+   **For Regular Items:**
+   - Horizontal distance (35% weight): Prefer items to the left of price
+   - Vertical alignment (25% weight): Prefer items on same row as price
+   - Text length (15% weight): Prefer longer text for item names
+   - Letter ratio (15% weight): Prefer text with more letters over numbers
+   - Position (10% weight): Prefer items on left side of receipt
+   
+   **For Weight-Based Items:**
    - Horizontal distance (30% weight): Prefer items to the left of price
    - Line proximity (30% weight): Prefer items closer to price line, but allow for gaps
    - Text length (15% weight): Prefer longer text for item names
    - Letter ratio (15% weight): Prefer text with more letters over numbers
    - Position (10% weight): Prefer items on left side of receipt
 
-5. **Line-by-Line Search for Weight-Based Items**
+   d. **Line-by-Line Search for Weight-Based Items**
    - Search each line above the price line systematically
    - Use approximate line spacing of 0.02 to identify line positions
    - Score each potential item name found on each line
    - Stop searching when a good match is found (score > 0.5) or after 5 lines
    - This handles cases where item names are separated from prices by multiple lines
 
-6. **Special Cases**
+4. **Tax Detection**
+   - Check if tax codes are present in the item name or on the same line as the price
+   - HMRJ = item is taxed
+   - MRJ = item is not taxed (but still a tax code)
+   - Set the `isTaxed` property based on HMRJ detection
+   - Both HMRJ and MRJ codes are removed from the final item name during cleaning
+
+5. **Special Cases**
    - Handle weight-based items (e.g., "1.220 kg @ $1.30/kg")
    - Handle count-based items (e.g., "2 @ $2.00")
    - Process multi-line items (item name above weight/price)
    - Filter out receipt headers and footers
    - Detect and track tax status for items
+
+6. **Final Filtering**
+   - Apply blacklist filtering to remove items containing non-product words
+   - Common blacklisted words include: "total", "subtotal", "tax", "hst", "loyalty", "change", "cash", "credit", "debit", "visa", "mastercard", "thank you", "receipt", "date:", "time:", "store", "register", "amount", "payment", "method", "card", "transaction", "balance", "due", "paid", "refund", "return", "exchange", "discount", "coupon", "sale", "clearance", "cad"
+   - Items containing any blacklisted word are filtered out from the final results
+   - This ensures only actual product items are included in the output
 
 ## Coordinate System
 - x-coordinate: Vertical position (top to bottom)
